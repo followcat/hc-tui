@@ -88,7 +88,8 @@ async fn paint(
     bytes: &[u8],
 ) {
     let mut payload = bytes.to_vec();
-    if matches!(&pane.state, State::Live(live) if live.await_paint || live.repaint.is_some()) {
+    if matches!(&pane.state, State::Live(live) if live.paint_gate.await_paint() || live.repaint.is_some())
+    {
         payload.extend_from_slice(b"\x1b[?9001l");
     }
     raw_paint(pane, rx, core, &payload).await;
@@ -207,6 +208,9 @@ mod cases_2;
 
 #[path = "recovery_tests.rs"]
 mod recovery_tests;
+
+#[path = "paint_fallback_tests.rs"]
+mod paint_fallback_tests;
 
 #[path = "generation_tests.rs"]
 mod generation_tests;

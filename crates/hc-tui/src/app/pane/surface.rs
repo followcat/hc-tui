@@ -151,7 +151,7 @@ impl Pane {
                 live.core_grid = grid;
                 self.vt_grid = grid;
                 if let Some(vt) = &mut self.vt
-                    && !live.await_paint
+                    && !live.paint_gate.await_paint()
                     && let Err(e) = vt.resize(grid.0, grid.1)
                 {
                     live.vt_broken = Some(format!("resize: {e}"));
@@ -223,16 +223,25 @@ impl Pane {
         }
     }
 
-    /// The next instant the pane needs the loop awake (a Down retry).
+    /// The next instant the pane needs the loop awake: a Down retry,
+    /// or a live wire's armed paint fallback deadline.
     pub fn next_wake(&self) -> Option<Instant> {
         match &self.state {
             State::Down { retry_at, .. } => Some(*retry_at),
+            State::Live(live) => [
+                live.paint_gate.wake(),
+                live.repaint.as_ref().map(repaint::Repaint::deadline),
+            ]
+            .into_iter()
+            .flatten()
+            .min(),
             _ => None,
         }
     }
 
     /// Fires a due retry: a fresh attach for the same spec — `resumed`,
-    /// since nothing about the user's ownership changed.
+    /// since nothing about the user's ownership changed. On a live
+    /// wire, due paint fallback deadlines release instead.
     pub fn fire_retry(&mut self, now: Instant) {
         if let State::Down {
             spec,
@@ -244,7 +253,9 @@ impl Pane {
         {
             let (spec, attempts) = (spec.clone(), *attempts);
             self.spawn(spec, true, attempts);
+            return;
         }
+        self.fire_paint_fallback(now);
     }
 
     /// The retained screen, if any — the draw layer clips/pads it.
@@ -253,8 +264,16 @@ impl Pane {
     }
 
     pub(crate) fn has_fresh_paint(&self) -> bool {
-        matches!(&self.state, State::Live(live) if !live.await_paint && live.repaint.is_none())
+        matches!(&self.state, State::Live(live) if !live.paint_gate.await_paint() && live.repaint.is_none())
             && self.vt.is_some()
+    }
+
+    /// Why a paint wait released without `?9001`, when it did.
+    pub fn paint_fallback(&self) -> Option<&str> {
+        match &self.state {
+            State::Live(live) => live.paint_fallback,
+            _ => None,
+        }
     }
 
     pub fn vt(&mut self) -> Option<&mut Vt> {
@@ -294,6 +313,9 @@ impl Pane {
                 };
                 if self.has_size_mismatch() {
                     s.push_str(" · size may be owned by another viewer — click the size notice to take control");
+                }
+                if let Some(why) = self.paint_fallback() {
+                    s.push_str(&format!(" · {why}"));
                 }
                 if let Some(why) = &live.vt_broken {
                     s.push_str(&format!(" · {why}"));
