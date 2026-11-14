@@ -20,6 +20,7 @@ mod narrow;
 mod page_keys;
 mod reload;
 mod review_regressions;
+mod version_badge;
 
 use super::*;
 use ratatui::backend::TestBackend;

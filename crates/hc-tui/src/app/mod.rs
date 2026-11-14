@@ -154,6 +154,9 @@ pub struct App {
     /// The one-shot `hc server start` report — `Some` until it lands.
     core_start: Option<crate::core_start::Report>,
     update_check: Option<crate::update_check::Report>,
+    /// The last known newer release's bare version — feeds the
+    /// sidebar/mobile version badge after the toast expires.
+    pub update_latest: Option<String>,
     background_failure: Option<String>,
     next_tab_status: Option<Instant>,
     last_window_title: Option<String>,
