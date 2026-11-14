@@ -292,7 +292,13 @@ request/hello/reply combinations retain the unconfirmed DATA fallback.
 
 The two pinned cores terminate initial attach paint with `CSI ?9001h/l`,
 after the restored keyboard and paste modes. Human input waits for that
-marker, including when paint and marker span DATA chunks. Viewer state is
+marker, including when paint and marker span DATA chunks. The marker is
+also the observer-resize repaint gate. A core that omits it cannot hold
+either gate forever: the first DATA chunk arms a bounded fallback —
+200 ms after paint starts, or 256 KiB scanned without the marker —
+which releases queued input and the fresh surface state, flushes a
+repaint's held tail as live bytes, and notes "paint marker omitted" on
+the status line instead of the error card. Viewer state is
 synchronized before initial input; live focus/resize/facts and human input
 then share a FIFO. The writer crosses a DATA fence before priority controls
 and CLOSE. An actual resize during fragmented paint is applied at the gate.

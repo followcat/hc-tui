@@ -90,7 +90,7 @@ impl Pane {
         let State::Live(mut live) = std::mem::replace(&mut self.state, State::Idle) else {
             unreachable!()
         };
-        if live.await_paint {
+        if live.paint_gate.await_paint() {
             leave_live(&live);
             if !self.pending.is_empty() {
                 self.input_rejection =
@@ -103,7 +103,7 @@ impl Pane {
         if let Some(vt) = self.vt.take() {
             let mut pending_input = VecDeque::new();
             for item in std::mem::take(&mut self.pending) {
-                if let Some(id) = dispatch_id(&item) {
+                if let Some(id) = pending_queue::dispatch_id(&item) {
                     self.record_dispatch(id);
                 }
                 if let Pending::Control(out) = item {
@@ -266,7 +266,7 @@ impl Pane {
     }
 
     fn record_dispatch(&mut self, id: u64) {
-        record_dispatch(&mut self.dispatched, id, self.generation);
+        pending_queue::record_dispatch(&mut self.dispatched, id, self.generation);
     }
 
     /// The pane's allocated inner area changed (window resize, sidebar
@@ -362,7 +362,7 @@ impl Pane {
             self.input_rejection = Some("Terminal input is unavailable in this view".into());
             return false;
         }
-        let bytes = charge(&item);
+        let bytes = pending_queue::charge(&item);
         if self.pending.len() >= PENDING_MAX_ITEMS || self.pending_bytes + bytes > PENDING_MAX_BYTES
         {
             self.dropped_input += 1;
@@ -389,21 +389,4 @@ impl Pane {
             self.push_controls();
         }
     }
-}
-
-pub(super) fn dispatch_id(item: &Pending) -> Option<u64> {
-    match item {
-        Pending::Key(key) if key.input.action == hc_vt::Action::Press && key.dispatch_id != 0 => {
-            Some(key.dispatch_id)
-        }
-        Pending::Encoded(_, id, _) => *id,
-        Pending::Prepared(_, key) => dispatch_id(&Pending::Key(key.clone())),
-        _ => None,
-    }
-}
-pub(super) fn record_dispatch(records: &mut VecDeque<(u64, u64)>, id: u64, generation: u64) {
-    if records.len() >= PENDING_MAX_ITEMS {
-        records.pop_front();
-    }
-    records.push_back((id, generation));
 }

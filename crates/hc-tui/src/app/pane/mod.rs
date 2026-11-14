@@ -21,9 +21,11 @@
 //!   under, and encode only under the fresh post-paint VT.
 
 mod close;
+mod down;
 mod held;
 mod notices;
 mod open;
+mod paint_gate;
 mod pending_lifecycle;
 mod pending_queue;
 mod repaint;
@@ -82,11 +84,14 @@ struct Live {
     /// ordered RESIZE-before-paint. Without it the core grid comes
     /// from inventory sizes (legacy: no cross-connection ordering).
     negotiated: bool,
-    /// No DATA yet on this attach: the retained screen still shows and
-    /// input waits — encoding under the old VT's modes would be wrong.
-    await_paint: bool,
+    /// First-paint gate: the retained screen still shows and input
+    /// waits until `?9001` or the bounded fallback releases it —
+    /// encoding under the old VT's modes would be wrong.
+    paint_gate: paint_gate::PaintGate,
+    /// Why a paint wait released without `?9001`, when it did — a
+    /// status-line diagnostic, never the red error card.
+    paint_fallback: Option<&'static str>,
     paint_started: bool,
-    paint_tail: Vec<u8>,
     repaint: Option<repaint::Repaint>,
     /// The size we last successfully asked the core for.
     sent_size: Option<(u16, u16)>,
@@ -290,19 +295,6 @@ pub struct Paint {
     pub host_bg: Option<Rgb>,
 }
 
-/// The byte charge of a pending item — keys count their real payload
-/// (generated text + raw sequence + base), so the 256KiB bound still
-/// limits the bytes actually retained.
-fn charge(item: &Pending) -> usize {
-    match item {
-        Pending::Control(_) => 0,
-        Pending::Mouse(_, _) => 32,
-        Pending::Key(k) => 32 + k.text_commit.as_deref().map_or(0, str::len) + k.vt_bytes.len(),
-        Pending::Paste(t) | Pending::Encoded(t, ..) => t.len(),
-        Pending::Prepared(bytes, key) => bytes.len() + charge(&Pending::Key(key.clone())),
-    }
-}
-
 impl Pane {
     pub fn new(ev: mpsc::Sender<PaneEv>, open: OpenAttach) -> Pane {
         Pane {
@@ -352,7 +344,7 @@ impl Pane {
     /// live program output. An opening or reattaching pane is `false` —
     /// and clears captures on the paint that lands.
     pub fn is_painted(&self) -> bool {
-        matches!(&self.state, State::Live(live) if !live.await_paint)
+        matches!(&self.state, State::Live(live) if !live.paint_gate.await_paint())
     }
 }
 
