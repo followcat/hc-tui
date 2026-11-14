@@ -110,8 +110,9 @@ impl App {
     /// (up to date, offline, opted out) just disarms the arm.
     pub(super) fn on_update_check(&mut self, report: Option<crate::update_check::Notice>) {
         self.update_check = None;
-        if let Some((title, body)) = report {
-            self.show_notice(&title, &body);
+        if let Some(notice) = report {
+            self.update_latest = Some(notice.latest);
+            self.show_notice(&notice.title, &notice.body);
         }
     }
 }

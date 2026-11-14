@@ -89,6 +89,7 @@ pub fn draw(app: &mut App, frame: &mut ratatui::Frame, _now: Instant) {
         reveal_navigation_workspace: &mut app.shell_state.reveal_navigation_workspace,
         dragged_workspace_id: None,
         workspace_drop_indicator_row: None,
+        update_latest: app.update_latest.as_deref(),
     };
     app.hit_map = crate::chrome::render::render_shell(
         buf,
