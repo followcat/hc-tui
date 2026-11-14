@@ -763,3 +763,24 @@
   freshness, malformed state files and the opt-outs.
 - Gates: fmt, all-target clippy with denied warnings and the full
   suite pass on every commit (cc6b070, 991e6eb, fd2471e, 2cf14ec).
+
+## v0.1.5: version badge in the top-left chrome (branch feat/version-badge)
+
+- The sidebar header's `spaces` row now carries the running `v`
+  version right-aligned in `overlay0`, short of the divider column.
+  Once the startup update check reports a newer release, an accent
+  ` ↑ v<latest>` hint joins it — the hint drops first under width
+  pressure, then the whole badge. The report's `latest` persists on
+  the app, so the hint outlives the one-shot toast; clicking the hint
+  re-raises the existing update notice while the version text itself
+  stays inert. The mobile header draws the same badge in a reserved
+  right slot only while the status keeps a readable width.
+- `update_check::Notice` became a struct `{title, body, latest}`; the
+  check's timing, cache, opt-outs and failure silence are unchanged,
+  and the badge reuses the one report — no extra request.
+- Tests: buffer-level assertions cover the version's presence, the
+  hint's accent and absence, the drop order, the divider column, the
+  mobile fit and skip, and the hit rect covering only the hint; a unit
+  test keeps `latest` through quiet follow-up reports.
+- Gates: fmt, all-target clippy with denied warnings and the full
+  suite pass on every commit (4475fe3, merged as 4aee402).
