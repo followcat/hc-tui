@@ -107,6 +107,27 @@ next_agent = "alt+down"
 Machines that are offline are skipped. Plain shells aren't in the list: a program counts as an agent only while it has
 a status.
 
+### Which terminal was focused
+
+A `[[keys.command]]` command of any type (`popup`, `shell`, `pane`, and a persistent float) learns which terminal had
+focus when you pressed the key. hc-tui sets these environment variables:
+
+| Variable | Local terminal `t7` | Terminal `t3` on machine `host-a` |
+| --- | --- | --- |
+| `HC_FOCUSED_TERMINAL` | `t7` | `t3` |
+| `HC_FOCUSED_MACHINE` | empty | `host-a` |
+| `HC_FOCUSED_SPACE` | space name | space name |
+| `HC_FOCUSED_TAB` | tab name | tab name |
+
+The terminal id is the one valid on its own machine, so `hc` calls on that machine accept it as is. `HC_FOCUSED_SPACE`
+and `HC_FOCUSED_TAB` are set only when the terminal has them. With nothing focused none of the four exist. The command's
+own `HC_TERMINAL_ID` and `HC_TERMINAL_SOCKET` are not changed.
+
+How the command runs: a `popup` or `pane` command is run as a shell line by the machine of the focused terminal. A remote popup starts in
+that machine's home directory, a `pane` in the space's folder. A `shell` command is sent to that machine as
+a shell line with the variables put in front as `export NAME='value'; `, so it sees the same variables. A persistent
+float gets the values from the moment it was first started, not from later key presses.
+
 ### Floating terminal
 
 A `[[keys.command]]` entry binds a key to a command. With `type = "popup"`, the command runs in a floating terminal over

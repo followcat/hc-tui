@@ -25,7 +25,69 @@ pub(super) fn program_env() -> BTreeMap<String, String> {
     BTreeMap::from([("HERDR_ENV".into(), "1".into())])
 }
 
+/// The environment variables a custom command gets about the terminal that
+/// was focused when its key was pressed (hc-tui's own; herdr defines no
+/// source-pane variables). Ids are valid on the machine the command runs
+/// on: a remote terminal's `<machine>/` prefix is stripped.
+///
+/// - `HC_FOCUSED_TERMINAL`: the terminal id, e.g. `t7`.
+/// - `HC_FOCUSED_MACHINE`: the machine name, empty for this computer.
+/// - `HC_FOCUSED_SPACE` / `HC_FOCUSED_TAB`: its `herdr.space` / `herdr.tab`
+///   label values, when it has them.
+///
+/// Empty when nothing is focused. `HC_TERMINAL_ID` and
+/// `HC_TERMINAL_SOCKET` belong to the command's own terminal and are never
+/// touched.
+pub(super) fn focused_env(
+    address: Option<&str>,
+    labels: Option<&BTreeMap<String, String>>,
+) -> BTreeMap<String, String> {
+    let Some(address) = address else {
+        return BTreeMap::new();
+    };
+    let (machine, terminal) = address.split_once('/').unwrap_or(("", address));
+    let mut env = BTreeMap::from([
+        ("HC_FOCUSED_TERMINAL".to_owned(), terminal.to_owned()),
+        ("HC_FOCUSED_MACHINE".to_owned(), machine.to_owned()),
+    ]);
+    for (name, label) in [
+        ("HC_FOCUSED_SPACE", "herdr.space"),
+        ("HC_FOCUSED_TAB", "herdr.tab"),
+    ] {
+        if let Some(value) = labels.and_then(|labels| labels.get(label)) {
+            env.insert(name.to_owned(), value.clone());
+        }
+    }
+    env
+}
+
+/// `export NAME='value' ...; ` for a `machine.exec` line, which has no
+/// environment parameter. Empty when there is nothing to export.
+pub(super) fn export_prefix(env: &BTreeMap<String, String>) -> String {
+    if env.is_empty() {
+        return String::new();
+    }
+    let assignments = env
+        .iter()
+        .map(|(name, value)| format!("{name}='{}'", value.replace('\'', "'\\''")))
+        .collect::<Vec<_>>()
+        .join(" ");
+    format!("export {assignments}; ")
+}
+
 impl App {
+    /// The variables for a command started now: the focused terminal's.
+    pub(super) fn focused_command_env(&self) -> BTreeMap<String, String> {
+        let terminal = self
+            .focused
+            .as_deref()
+            .and_then(|id| self.view.inventory.get(id));
+        focused_env(
+            self.focused.as_deref(),
+            terminal.map(|terminal| &terminal.labels),
+        )
+    }
+
     pub(super) fn creation(
         &self,
         vertical: Option<bool>,

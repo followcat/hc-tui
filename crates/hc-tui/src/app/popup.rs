@@ -114,8 +114,9 @@ impl App {
                     .focused
                     .as_deref()
                     .and_then(|s| s.split_once('/').map(|(m, _)| m.to_owned()));
+                let prefix = super::creation::export_prefix(&self.focused_command_env());
                 self.submit_action(Action::Exec {
-                    line: command.command.clone(),
+                    line: format!("{prefix}{}", command.command),
                     machine,
                 });
             }
@@ -129,6 +130,7 @@ impl App {
                     creation.params.line = Some(command.command.clone());
                     creation.params.keep = false;
                     creation.params.rm = true;
+                    creation.params.env.extend(self.focused_command_env());
                     creation.report_created = true;
                     self.submit_action(Action::Create(Box::new(creation)));
                 }
@@ -171,7 +173,11 @@ impl App {
             keep: false,
             no_notify: true,
             no_parent: true,
-            env: program_env(),
+            env: {
+                let mut env = program_env();
+                env.extend(self.focused_command_env());
+                env
+            },
             labels: BTreeMap::from([(POPUP_LABEL.into(), "1".into())]),
             display: self.host_facts.display(),
             ..Default::default()
