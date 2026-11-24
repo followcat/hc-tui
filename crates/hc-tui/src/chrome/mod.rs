@@ -81,6 +81,8 @@ pub struct ClientShellConfig {
     pub agents: AgentsSidebarConfig,
     pub agent_panel_sort: AgentPanelSortConfig,
     pub agent_panel_space_headers: bool,
+    /// `ui.nest_worker_terminals` — place workers next to their parent.
+    pub nest_worker_terminals: bool,
     pub status_indicators: StatusIndicatorStyle,
     pub popup_backdrop: PopupBackdrop,
     pub popup_shadow: bool,
@@ -172,6 +174,7 @@ impl ClientShellConfig {
             agents: ui.sidebar.agents.clone(),
             agent_panel_sort: ui.agent_panel_sort,
             agent_panel_space_headers: ui.agent_panel_space_headers,
+            nest_worker_terminals: ui.nest_worker_terminals,
             status_indicators: ui.status_indicators,
             popup_backdrop: ui.popup_backdrop,
             popup_shadow: ui.popup_shadow,
