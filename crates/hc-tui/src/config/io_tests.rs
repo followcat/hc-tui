@@ -61,6 +61,24 @@ fn agent_panel_space_headers_loads_without_unknown_key_diagnostics() {
 }
 
 #[test]
+fn nest_worker_terminals_parses_true_false_and_absent() {
+    assert!(!crate::config::UiConfig::default().nest_worker_terminals);
+    for (text, expected) in [
+        ("[ui]\nnest_worker_terminals = true\n", true),
+        ("[ui]\nnest_worker_terminals = false\n", false),
+        ("[ui]\n", false),
+    ] {
+        let loaded = load_text(text);
+        assert_eq!(loaded.config.ui.nest_worker_terminals, expected, "{text}");
+        assert!(
+            loaded.diagnostics.is_empty(),
+            "unexpected diagnostics for {text}: {:?}",
+            loaded.diagnostics
+        );
+    }
+}
+
+#[test]
 fn herdr_only_experimental_keys_are_accepted_and_ignored() {
     let loaded = load_text("[experimental]\npane_history = true\n");
     assert!(loaded.diagnostics.is_empty());
