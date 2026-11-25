@@ -110,7 +110,7 @@ impl App {
             return;
         };
         self.unfold_agent_space_of(&target.endpoint_id, &target.pane_id);
-        self.focus_pane(target.pane_id.clone());
+        self.activate_agent(&target.pane_id);
         self.reveal_endpoint_agent(&target);
     }
 

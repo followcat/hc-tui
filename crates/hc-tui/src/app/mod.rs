@@ -70,6 +70,7 @@ mod waiting_wire;
 mod wake;
 mod window_title;
 mod word_selection;
+mod worker_popup;
 
 pub use input::UiEvent;
 pub use pane::{OpenAttach, PaneEv, Role, Spec};

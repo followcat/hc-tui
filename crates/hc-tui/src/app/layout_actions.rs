@@ -123,12 +123,17 @@ impl App {
                     }
                     _ => at.map_or(0, |at| (at + 1) % ids.len()),
                 };
+                let mut worker = None;
                 if let Some(id) = ids.get(index).cloned() {
                     self.unfold_agent_space_of(
                         &crate::chrome::snapshot::ClientEndpointId::Local,
                         &id,
                     );
-                    self.focused = Some(id.clone());
+                    if self.worker_popup_agent(&id) {
+                        worker = Some(id.clone());
+                    } else {
+                        self.focused = Some(id.clone());
+                    }
                     if matches!(action, A::PreviousAgent | A::NextAgent)
                         && !self
                             .hit_map
@@ -144,6 +149,9 @@ impl App {
                         // The scroll counts rendered entries, space headers included.
                         self.scroll_to_agent_row(&id, index);
                     }
+                }
+                if let Some(id) = worker {
+                    self.open_worker(id);
                 }
             }
             A::CyclePaneNext | A::CyclePanePrevious => {

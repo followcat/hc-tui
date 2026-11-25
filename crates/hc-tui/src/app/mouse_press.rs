@@ -201,11 +201,11 @@ impl App {
             .find(|(rect, _, _)| contains(*rect, point))
         {
             let _ = endpoint_id;
-            self.focus_pane(pane_id.clone());
+            self.activate_agent(pane_id);
             return;
         }
         if let Some((_, pane_id)) = hits.agents.iter().find(|(rect, _)| contains(*rect, point)) {
-            self.focus_pane(pane_id.clone());
+            self.activate_agent(pane_id);
             return;
         }
         if let Some(hit) = hits.panes.iter().find(|h| contains(h.rect, point)).cloned() {
