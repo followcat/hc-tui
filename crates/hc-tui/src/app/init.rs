@@ -17,7 +17,13 @@ impl App {
         let (image_read_done_tx, image_read_done_rx) = mpsc::channel(8);
         let (update_tx, update_rx) = mpsc::channel(16);
         let view = View::default();
-        let projection = crate::project::project(&view, None);
+        let projection = crate::project::project_with_options(
+            &view,
+            None,
+            crate::structure::ReadOptions {
+                nest_workers: shell.nest_worker_terminals,
+            },
+        );
         // Saved per-endpoint chrome choices win over config; each
         // `Some` also marks its manual flag so a reload keeps it —
         // the reference's `ClientShellState::new` preference block.

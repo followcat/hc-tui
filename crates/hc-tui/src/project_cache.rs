@@ -6,7 +6,7 @@ use super::repository::repository_equal;
 use super::snapshot_builder::structured_snapshot_from_spaces;
 use super::{EndpointSnapshot, Projection, local_status, machine_of, project_with};
 use crate::chrome::snapshot::ClientEndpointStatus;
-use crate::structure::{self, Space};
+use crate::structure::{self, ReadOptions, Space};
 use hc_proto::inventory::Inventory;
 use hc_proto::machine::MachineView;
 use hc_proto::terminal::Terminal;
@@ -27,6 +27,7 @@ struct LastState {
     activity_receipts: ActivityReceipts,
     machines: Vec<MachineView>,
     documents: Arc<BTreeMap<DocKey, Arc<WatchDocument>>>,
+    opts: ReadOptions,
 }
 
 /// One endpoint's cached pipeline: filtered terminals, the decoded
@@ -37,6 +38,7 @@ struct EndpointEntry {
     closed: BTreeMap<String, u64>,
     app: Option<Arc<WatchDocument>>,
     spaces: Arc<Vec<Space>>,
+    opts: ReadOptions,
     own: Arc<structure::Document>,
     generation: u64,
     selected: Option<String>,
@@ -124,6 +126,8 @@ fn structurally_equal(a: &Terminal, b: &Terminal) -> bool {
         && a.created_ms == b.created_ms
         && (a.state == "finished") == (b.state == "finished")
         && a.cwd == b.cwd
+        && a.parent == b.parent
+        && a.name == b.name
         && a.labels.get("herdr.space") == b.labels.get("herdr.space")
         && a.labels.get("herdr.tab") == b.labels.get("herdr.tab")
         && repository_equal(a.repository.as_ref(), b.repository.as_ref())
@@ -170,14 +174,20 @@ fn relevant_documents_equal(old: &BTreeMap<DocKey, Arc<WatchDocument>>, view: &V
 }
 
 impl ProjectCache {
-    /// True when `view` + `selected` project to what `project` last
-    /// returned — equal `Arc`s are kept, equal-by-value ones are swapped
-    /// in so the next check hits `Arc::ptr_eq`.
-    pub(crate) fn is_unchanged(&mut self, view: &View, selected: Option<&str>) -> bool {
+    /// True when `view` + `selected` project to what `project_with` last
+    /// returned under the same `opts` — equal `Arc`s are kept, equal-by-value
+    /// ones are swapped in so the next check hits `Arc::ptr_eq`.
+    pub(crate) fn is_unchanged_with(
+        &mut self,
+        view: &View,
+        selected: Option<&str>,
+        opts: ReadOptions,
+    ) -> bool {
         let Some(last) = self.last.as_mut() else {
             return false;
         };
-        if view.generation != last.generation
+        if opts != last.opts
+            || view.generation != last.generation
             || local_status(view) != last.local_status
             || stream_offline(view) != last.stream_offline
             || rpc_offline(view) != last.rpc_offline
@@ -232,11 +242,16 @@ impl ProjectCache {
     /// Build `Projection` with per-endpoint reuse without recording `last`
     /// — provisional focus-fallback reads warm endpoint entries without
     /// marking the publish already installed when `fallback == focused`.
-    pub(crate) fn preview(&mut self, view: &View, selected: Option<&str>) -> Projection {
+    pub(crate) fn preview_with(
+        &mut self,
+        view: &View,
+        selected: Option<&str>,
+        opts: ReadOptions,
+    ) -> Projection {
         let own = self.own_document(view);
         let endpoints = &mut self.endpoints;
         let projection = project_with(view, selected, &own, |machine, terms, selected_here| {
-            endpoint(endpoints, view, &own, machine, terms, selected_here)
+            endpoint(endpoints, view, &own, machine, terms, selected_here, opts)
         });
         // Drop entries for machines that left `machine.list` and whose
         // terminals are gone — `None` (local) always stays.
@@ -258,9 +273,15 @@ impl ProjectCache {
         projection
     }
 
-    /// `preview`, then record the inputs the next `is_unchanged` checks.
-    pub(crate) fn project(&mut self, view: &View, selected: Option<&str>) -> Projection {
-        let projection = self.preview(view, selected);
+    /// `preview_with`, then record the inputs the next `is_unchanged_with`
+    /// checks.
+    pub(crate) fn project_with(
+        &mut self,
+        view: &View,
+        selected: Option<&str>,
+        opts: ReadOptions,
+    ) -> Projection {
+        let projection = self.preview_with(view, selected, opts);
         self.last = Some(LastState {
             generation: view.generation,
             local_status: local_status(view),
@@ -272,6 +293,7 @@ impl ProjectCache {
             activity_receipts: view.activity_receipts.clone(),
             machines: view.machines.clone().unwrap_or_default(),
             documents: Arc::clone(&view.documents),
+            opts,
         });
         projection
     }
@@ -279,7 +301,8 @@ impl ProjectCache {
 
 /// `project_with`'s per-endpoint builder: reuse the cached snapshot when
 /// every input it was built from still matches, else reuse `spaces` and
-/// re-run only the snapshot half — never re-reading structure.
+/// re-run only the snapshot half — never re-reading structure. A change of
+/// `opts` re-reads structure: they decide where terminals are placed.
 fn endpoint(
     endpoints: &mut BTreeMap<Option<String>, EndpointEntry>,
     view: &View,
@@ -287,6 +310,7 @@ fn endpoint(
     machine: Option<&str>,
     terms: &[&Terminal],
     selected: Option<&str>,
+    opts: ReadOptions,
 ) -> EndpointSnapshot {
     let key = machine.map(str::to_owned);
     let app = app_doc_of(view, machine);
@@ -304,7 +328,11 @@ fn endpoint(
         // Display-only edits keep the structure: the same `Space`s drive
         // a fresh snapshot built from the current terminals.
         let same_spaces = same_terms || terms_structurally_equal(&entry.terms, terms);
-        if same_spaces && app_docs_match(&entry.app, &app) && entry.closed == own.closed {
+        if same_spaces
+            && entry.opts == opts
+            && app_docs_match(&entry.app, &app)
+            && entry.closed == own.closed
+        {
             let mut builds = entry.snapshot_builds;
             let (mut snapshot, layouts) = if same_terms
                 && Arc::ptr_eq(&entry.own, own)
@@ -338,10 +366,11 @@ fn endpoint(
             return (snapshot, layouts);
         }
     }
-    let spaces = Arc::new(structure::read(
+    let spaces = Arc::new(structure::read_with(
         terms,
         app.as_ref().map(|d| &d.value).unwrap_or(&super::NULL_DOC),
         machine,
+        opts,
     ));
     let (snapshot, layouts) = structured_snapshot_from_spaces(
         &spaces,
@@ -364,6 +393,7 @@ fn endpoint(
             closed: own.closed.clone(),
             app,
             spaces,
+            opts,
             own: Arc::clone(own),
             generation: view.generation,
             selected: selected.map(str::to_owned),

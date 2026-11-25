@@ -5,6 +5,18 @@
 use super::*;
 use crate::sidebar::fixture::{agent, machine, term, view};
 
+/// The flat-options forms of the cache's methods, so every pre-existing
+/// test keeps exercising the default (nesting off) behaviour unchanged.
+impl ProjectCache {
+    pub(crate) fn is_unchanged(&mut self, view: &View, selected: Option<&str>) -> bool {
+        self.is_unchanged_with(view, selected, ReadOptions::default())
+    }
+
+    pub(crate) fn project(&mut self, view: &View, selected: Option<&str>) -> Projection {
+        self.project_with(view, selected, ReadOptions::default())
+    }
+}
+
 fn labeled(address: &str, space: &str, tab: &str) -> Terminal {
     let mut terminal = term(address);
     terminal.labels.insert("herdr.space".into(), space.into());
@@ -363,5 +375,35 @@ fn a_closed_app_tab_terminal_finishing_invalidates_cached_spaces() {
     assert_same_projection(
         &rebuilt,
         &crate::project::project(&finished_view, Some("t1")),
+    );
+}
+
+const NEST: ReadOptions = ReadOptions { nest_workers: true };
+
+#[test]
+fn a_change_of_read_options_is_never_an_unchanged_publish() {
+    let view = view(vec![term("t3")], vec![]);
+    let mut cache = ProjectCache::default();
+    cache.project_with(&view, Some("t3"), ReadOptions::default());
+    assert!(cache.is_unchanged_with(&view, Some("t3"), ReadOptions::default()));
+    assert!(!cache.is_unchanged_with(&view, Some("t3"), NEST));
+}
+
+#[test]
+fn a_change_of_read_options_re_reads_every_endpoint() {
+    let view = view(vec![term("t3")], vec![]);
+    let mut cache = ProjectCache::default();
+    cache.project_with(&view, Some("t3"), ReadOptions::default());
+    let flat = Arc::clone(&cache.endpoints[&None].spaces);
+    cache.project_with(&view, Some("t3"), ReadOptions::default());
+    assert!(
+        Arc::ptr_eq(&flat, &cache.endpoints[&None].spaces),
+        "unchanged options reuse the read"
+    );
+    cache.project_with(&view, Some("t3"), NEST);
+    assert_eq!(cache.endpoints[&None].opts, NEST);
+    assert!(
+        !Arc::ptr_eq(&flat, &cache.endpoints[&None].spaces),
+        "new options re-read the structure"
     );
 }

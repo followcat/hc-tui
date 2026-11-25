@@ -26,6 +26,14 @@ pub(super) fn program_env() -> BTreeMap<String, String> {
 }
 
 impl App {
+    /// The structure options every projection and structure read of this
+    /// app uses.
+    pub(super) fn read_options(&self) -> crate::structure::ReadOptions {
+        crate::structure::ReadOptions {
+            nest_workers: self.shell.nest_worker_terminals,
+        }
+    }
+
     pub(super) fn creation(
         &self,
         vertical: Option<bool>,
@@ -37,13 +45,22 @@ impl App {
             .and_then(|id| self.view.inventory.get(id))
             .ok_or("No focused terminal")?;
         let machine = terminal.address.split_once('/').map(|(m, _)| m);
-        let terms = self
+        let mut terms = self
             .view
             .inventory
             .terminals()
             .values()
             .filter(|t| t.address.split_once('/').map(|(m, _)| m) == machine)
             .collect::<Vec<_>>();
+        let opts = self.read_options();
+        if opts.nest_workers {
+            // A worker's place depends on which parents exist, so the re-read
+            // must list exactly the terminals the projection listed.
+            let closed = crate::project::layout_document(&self.view)
+                .unwrap_or_default()
+                .closed;
+            terms.retain(|term| crate::project::projected(term, &closed));
+        }
         let app = self
             .view
             .documents
@@ -53,7 +70,7 @@ impl App {
             })
             .map(|d| d.value.clone())
             .unwrap_or_default();
-        let spaces = crate::structure::read(&terms, &app, machine);
+        let spaces = crate::structure::read_with(&terms, &app, machine, opts);
         let snapshot = &self.projection.snapshot;
         let space = spaces
             .iter()

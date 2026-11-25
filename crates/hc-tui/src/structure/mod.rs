@@ -5,6 +5,7 @@ mod reader;
 mod tree;
 
 pub use reader::read;
+pub use reader::read_with;
 pub use tree::Tree;
 
 use serde::{Deserialize, Serialize};
@@ -27,6 +28,16 @@ pub struct Tab {
     pub name: String,
     pub custom_name: bool,
     pub root: Tree,
+}
+
+/// Inputs to `read` beyond the terminals and documents. `Default` is the
+/// flat herdr TUI behaviour; every flag is opt-in.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ReadOptions {
+    /// Keep a terminal started from another terminal (a worker), with no
+    /// placement of its own, out of every tab: its agent row nests under its
+    /// parent's, it opens in a popup, and it is hidden once finished.
+    pub nest_workers: bool,
 }
 
 /// Only overrides belong here: inventory and herdr-app remain authoritative
