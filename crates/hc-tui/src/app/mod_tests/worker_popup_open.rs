@@ -99,8 +99,13 @@ async fn a_click_opens_an_active_worker_popup_over_the_current_tab() {
     assert!(app.peek.is_none());
 }
 
+/// Opening a worker over a shown float: the float parks (no kill) and the
+/// popup takes its place. The keyboard cannot reach this with a chord, since
+/// a shown float takes every key but its popup chord; a row click does (see
+/// `a_row_press_parks_a_shown_float_and_opens_the_worker`), and this drives
+/// the same path through `NextAgent`.
 #[tokio::test]
-async fn next_agent_onto_a_worker_parks_a_float_and_opens_the_popup() {
+async fn opening_a_worker_over_a_shown_float_parks_it_and_opens_the_popup() {
     let (mut app, _rx) = counting();
     let key = show_float(&mut app);
     assert!(app.popup.as_ref().is_some_and(|p| p.persistent));
