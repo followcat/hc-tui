@@ -410,3 +410,57 @@ async fn the_worker_popup_stays_while_its_tab_stays_focused() {
     }
     assert_eq!(opened(&app), Some("t5"));
 }
+
+// ---- the shared popup rules ----------------------------------------------
+
+/// Five content rows plus two pages of history, on the normal screen.
+fn scrollback_vt() -> hc_vt::Vt {
+    let mut vt = hc_vt::Vt::new(40, 5, 8192);
+    for i in 1..=20 {
+        vt.feed(format!("line-{i:02}\r\n").as_bytes());
+    }
+    vt
+}
+
+fn scrolled_back(app: &App) -> u64 {
+    let bar = app
+        .popup
+        .as_ref()
+        .and_then(|popup| popup.pane.vt_ref())
+        .and_then(|vt| vt.scrollbar())
+        .expect("scrollbar state");
+    bar.total - bar.offset - bar.len
+}
+
+#[tokio::test]
+async fn plain_page_keys_page_the_worker_popups_own_scrollback() {
+    let (mut app, _rx) = open_app();
+    app.popup.as_mut().unwrap().pane.install_vt(scrollback_vt());
+    key(&mut app, Key::PageUp, Mods::NONE, KeyAction::Press);
+    assert_eq!(scrolled_back(&app), 5, "one popup height");
+    assert_eq!(typed(&app), 0, "a paged key never reaches the worker");
+    assert_eq!(app.pane.input_backlog().0, 0, "the pane behind never moves");
+    key(&mut app, Key::Char('x'), Mods::NONE, KeyAction::Press);
+    assert_eq!(typed(&app), 1, "other keys still type");
+    assert_eq!(scrolled_back(&app), 0, "and jump the view to the bottom");
+}
+
+#[tokio::test]
+async fn ctrl_g_types_into_the_worker_instead_of_locking() {
+    let (mut app, _rx) = open_app();
+    key(&mut app, Key::Char('g'), Mods::CTRL, KeyAction::Press);
+    assert!(!app.keyboard_locked, "a shown popup takes the lock chord");
+    assert_eq!(typed(&app), 1);
+}
+
+#[tokio::test]
+async fn a_locked_keyboard_types_every_chord_into_the_worker() {
+    let (mut app, _rx) = open_app();
+    app.keyboard_locked = true;
+    // Neither the prefix chord nor a navigation chord acts while locked.
+    ctrl_b(&mut app, KeyAction::Press);
+    assert!(!app.prefix.armed());
+    key(&mut app, Key::ArrowDown, Mods::ALT, KeyAction::Press);
+    assert_eq!(typed(&app), 2);
+    assert_eq!(opened(&app), Some("t5"));
+}
