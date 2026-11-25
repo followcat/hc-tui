@@ -3,8 +3,7 @@
 //! floating popup over the current tab without moving focus. The popup is
 //! an active attach: keys type into the worker, and closing it only
 //! detaches — the worker keeps running.
-use super::input::{MouseButton, MouseEventKind, MouseInput, TerminalKey};
-use super::mouse::contains;
+use super::input::TerminalKey;
 use super::pane::{Role, Spec};
 use super::popup::{PopupState, popup_fit};
 use super::*;
@@ -278,66 +277,6 @@ impl App {
             }
             None => false,
         }
-    }
-
-    /// Whether `point` is on an agent row of the last frame.
-    pub(super) fn agent_row_at(&self, point: (u16, u16)) -> bool {
-        self.hit_map
-            .agents
-            .iter()
-            .any(|(rect, _)| contains(*rect, point))
-            || self
-                .hit_map
-                .endpoint_agents
-                .iter()
-                .any(|(rect, _, _)| contains(*rect, point))
-    }
-
-    /// A left press outside the open popup that lands on an agent row
-    /// dismisses the popup and returns `true` so the row handles the same
-    /// press: a float parks, a command popup closes, a worker popup
-    /// detaches. Any other outside press keeps its own handling.
-    pub(super) fn click_through_popup(&mut self, mouse: &MouseInput) -> bool {
-        let point = (mouse.col, mouse.row);
-        let outside = self
-            .hit_map
-            .popup
-            .as_ref()
-            .is_some_and(|hit| !contains(hit.rect, point));
-        let through = mouse.kind == MouseEventKind::Down(MouseButton::Left)
-            && outside
-            && self.agent_row_at(point);
-        if through {
-            self.dismiss_popup();
-        }
-        through
-    }
-
-    /// The worker popup's title-bar buttons and outside press. `None` when
-    /// the press is not the popup chrome's to take (inside the surface,
-    /// another button or another popup kind), so today's forwarding runs.
-    pub(super) fn worker_popup_press(&mut self, mouse: &MouseInput) -> Option<bool> {
-        if mouse.kind != MouseEventKind::Down(MouseButton::Left) {
-            return None;
-        }
-        self.worker_popup_terminal()?;
-        let point = (mouse.col, mouse.row);
-        if let Some(buttons) = self.hit_map.extra.popup_buttons {
-            if contains(buttons.keep, point) {
-                self.keep_worker_popup();
-                return Some(true);
-            }
-            if contains(buttons.close, point) {
-                self.close_popup();
-                return Some(true);
-            }
-        }
-        let outer = self.hit_map.popup.as_ref()?.rect;
-        if contains(outer, point) {
-            return None;
-        }
-        self.close_popup();
-        Some(true)
     }
 
     /// Draw the worker popup's title bar over the top border: the worker's

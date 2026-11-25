@@ -6,6 +6,7 @@
 //! M3a implements structure, layout/tab operations and bindings plus lock.
 //! Custom commands, notifications and remaining actions belong to M4.
 
+mod agent_folds;
 mod agent_ops;
 mod agent_presentation;
 mod closing;
@@ -69,6 +70,7 @@ mod wake;
 mod window_title;
 mod word_selection;
 mod worker_popup;
+mod worker_popup_mouse;
 
 pub use input::UiEvent;
 pub use pane::{OpenAttach, PaneEv, Role, Spec};

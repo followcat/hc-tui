@@ -131,6 +131,8 @@ pub(crate) struct ShellRenderState<'a> {
     pub collapsed_endpoints: &'a HashSet<ClientEndpointId>,
     pub collapsed_groups: &'a HashSet<String>,
     pub remote_collapsed_groups: &'a HashMap<ClientEndpointId, HashSet<String>>,
+    /// Folded space groups of the agents panel.
+    pub agent_folds: super::agent_folds::AgentFolds<'a>,
     pub workspace_scroll: &'a mut usize,
     pub agent_scroll: &'a mut usize,
     pub tab_scroll: &'a mut usize,

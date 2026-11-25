@@ -172,6 +172,29 @@ impl App {
             });
             return;
         }
+        // A space header folds or unfolds its agents; the blank gap line
+        // above it is not in these rects.
+        if let Some((_, workspace_id)) = hits
+            .extra
+            .agent_space_headers
+            .iter()
+            .find(|(rect, _)| contains(*rect, point))
+        {
+            self.toggle_collapsed_agent_space(
+                &crate::chrome::snapshot::ClientEndpointId::Local,
+                workspace_id.clone(),
+            );
+            return;
+        }
+        if let Some((_, endpoint_id, workspace_id)) = hits
+            .extra
+            .endpoint_agent_space_headers
+            .iter()
+            .find(|(rect, _, _)| contains(*rect, point))
+        {
+            self.toggle_collapsed_agent_space(endpoint_id, workspace_id.clone());
+            return;
+        }
         if let Some((_, endpoint_id, pane_id)) = hits
             .endpoint_agents
             .iter()

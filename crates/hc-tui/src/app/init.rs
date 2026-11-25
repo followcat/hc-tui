@@ -1,5 +1,22 @@
 use super::*;
 
+/// The remote machines' saved sets, as the per-endpoint map the render
+/// state looks them up in. An entry with no machine name is dropped.
+fn remote_sets(
+    saved: Vec<crate::preferences::ClientRemoteCollapsedGroups>,
+) -> std::collections::HashMap<ClientEndpointId, std::collections::HashSet<String>> {
+    let mut sets = std::collections::HashMap::new();
+    for saved in saved {
+        if saved.profile_id.is_empty() {
+            continue;
+        }
+        sets.entry(ClientEndpointId::Remote(saved.profile_id))
+            .or_insert_with(std::collections::HashSet::new)
+            .extend(saved.collapsed_groups);
+    }
+    sets
+}
+
 impl App {
     /// An app over `watcher` (already watching) and `open` for attaches.
     pub fn new(
@@ -49,18 +66,14 @@ impl App {
         if let Some(sort) = preferences.agent_panel_sort {
             shell.agent_panel_sort = sort;
         }
-        let mut remote_collapsed_groups = std::collections::HashMap::new();
-        for saved in preferences.remote_collapsed_groups {
-            if saved.profile_id.is_empty() {
-                continue;
-            }
-            remote_collapsed_groups
-                .entry(ClientEndpointId::Remote(saved.profile_id))
-                .or_insert_with(std::collections::HashSet::new)
-                .extend(saved.collapsed_groups);
-        }
+        let remote_collapsed_groups = remote_sets(preferences.remote_collapsed_groups);
+        let remote_collapsed_agent_spaces = remote_sets(preferences.remote_collapsed_agent_spaces);
         let collapsed_groups = preferences
             .collapsed_groups
+            .into_iter()
+            .collect::<std::collections::HashSet<_>>();
+        let collapsed_agent_spaces = preferences
+            .collapsed_agent_spaces
             .into_iter()
             .collect::<std::collections::HashSet<_>>();
         let sidebar_collapsed_manual = preferences.sidebar_collapsed.is_some();
@@ -139,6 +152,8 @@ impl App {
             shell_state: ShellState {
                 collapsed_groups,
                 remote_collapsed_groups,
+                collapsed_agent_spaces,
+                remote_collapsed_agent_spaces,
                 sidebar_collapsed,
                 sidebar_section_split,
                 ..ShellState::default()

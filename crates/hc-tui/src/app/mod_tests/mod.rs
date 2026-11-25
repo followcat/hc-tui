@@ -1,4 +1,5 @@
 //! Read-only application tests and shared fixtures.
+mod agent_folds;
 mod cases_1;
 mod cases_2;
 mod empty_core_workspace;

@@ -29,6 +29,41 @@ fn app_with_shell(shell: ClientShellConfig) -> App {
 }
 
 #[tokio::test]
+async fn a_toggled_fold_persists_per_machine_and_a_fresh_app_starts_folded() {
+    let root = scratch();
+    let path = root.join("prefs.json");
+    let mut app = app_with_shell(shell_with_preferences(&path));
+    let remote = ClientEndpointId::Remote("host-a".into());
+    app.toggle_collapsed_agent_space(&ClientEndpointId::Local, "space:1:S".into());
+    app.toggle_collapsed_agent_space(&remote, "space:1:S".into());
+    app.toggle_collapsed_agent_space(&remote, "space:1:U".into());
+    // A second toggle unfolds and is remembered too.
+    app.toggle_collapsed_agent_space(&remote, "space:1:U".into());
+    let saved = crate::preferences::load(&path).expect("a toggle writes the file");
+    assert_eq!(saved.collapsed_agent_spaces, ["space:1:S"]);
+    assert_eq!(saved.remote_collapsed_agent_spaces.len(), 1);
+    assert_eq!(
+        saved.remote_collapsed_agent_spaces[0].collapsed_groups,
+        ["space:1:S"]
+    );
+
+    let restarted = app_with_shell(shell_with_preferences(&path));
+    assert!(
+        restarted
+            .shell_state
+            .collapsed_agent_spaces
+            .contains("space:1:S")
+    );
+    assert!(restarted.shell_state.remote_collapsed_agent_spaces[&remote].contains("space:1:S"));
+    assert!(!restarted.shell_state.remote_collapsed_agent_spaces[&remote].contains("space:1:U"));
+    // The sidebar's own group folds are a separate set.
+    assert!(restarted.shell_state.collapsed_groups.is_empty());
+
+    let other = app_with_shell(shell_with_preferences(&root.join("other.json")));
+    assert!(other.shell_state.collapsed_agent_spaces.is_empty());
+}
+
+#[tokio::test]
 async fn agent_panel_sort_defaults_to_priority() {
     assert_eq!(
         app().shell.agent_panel_sort,

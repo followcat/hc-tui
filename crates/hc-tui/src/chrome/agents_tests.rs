@@ -16,10 +16,10 @@ fn panel(
     );
     shell.agent_panel_sort = sort;
     shell.agent_panel_space_headers = space_headers;
-    super::panel_rows(snapshot, &shell)
+    super::panel_rows(snapshot, &shell, &Default::default())
         .into_iter()
         .map(|row| match row {
-            super::PanelRow::Space { label, gap } => {
+            super::PanelRow::Space { label, gap, .. } => {
                 format!("{}[{label}]", if gap { "~" } else { "" })
             }
             super::PanelRow::Agent(agent) => agent.pane_id,
@@ -124,10 +124,10 @@ mod nesting {
         snapshot: &ClientShellSnapshot,
         shell: &crate::chrome::ClientShellConfig,
     ) -> Vec<String> {
-        crate::chrome::agents::panel_rows(snapshot, shell)
+        crate::chrome::agents::panel_rows(snapshot, shell, &Default::default())
             .into_iter()
             .map(|row| match row {
-                crate::chrome::agents::PanelRow::Space { label, gap } => {
+                crate::chrome::agents::PanelRow::Space { label, gap, .. } => {
                     format!("{}[{label}]", if gap { "~" } else { "" })
                 }
                 crate::chrome::agents::PanelRow::Agent(row) => {
@@ -216,6 +216,156 @@ mod nesting {
         );
     }
 
+    /// Space `S` (`t3`, its worker `t5`) and space `U` (`t9`).
+    fn two_spaces_with_a_worker() -> ClientShellSnapshot {
+        let labelled = |address: &str, space: &str, created_ms: u64| {
+            let mut term = agent(address, "idle");
+            term.labels.insert("herdr.space".into(), space.into());
+            term.created_ms = created_ms;
+            term
+        };
+        let mut worker = agent("t5", "idle");
+        worker.parent = Some("t3".into());
+        worker.created_ms = 1;
+        project_with_options(
+            &view(
+                vec![labelled("t3", "S", 0), worker, labelled("t9", "U", 2)],
+                vec![],
+            ),
+            Some("t3"),
+            NEST,
+        )
+        .snapshot
+    }
+
+    fn folded_entries(
+        snapshot: &ClientShellSnapshot,
+        shell: &crate::chrome::ClientShellConfig,
+        folded: &[&str],
+    ) -> Vec<String> {
+        let folded = folded.iter().map(|id| (*id).to_owned()).collect();
+        crate::chrome::agents::panel_rows(snapshot, shell, &folded)
+            .into_iter()
+            .map(|row| match row {
+                crate::chrome::agents::PanelRow::Space {
+                    label,
+                    gap,
+                    collapsed,
+                    ..
+                } => format!(
+                    "{}{}[{label}]",
+                    if gap { "~" } else { "" },
+                    if collapsed { "▸" } else { "▾" }
+                ),
+                crate::chrome::agents::PanelRow::Agent(row) => {
+                    format!("{} d{}", row.pane_id, row.depth)
+                }
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_folded_space_keeps_its_header_and_loses_its_agents() {
+        let snapshot = two_spaces_with_a_worker();
+        let shell = config(AgentPanelSortConfig::Spaces, true, true);
+        let space = |label: &str| {
+            snapshot
+                .workspaces
+                .iter()
+                .find(|workspace| workspace.label == label)
+                .unwrap()
+                .workspace_id
+                .clone()
+        };
+        assert_eq!(
+            folded_entries(&snapshot, &shell, &[]),
+            ["▾[S]", "t3 d0", "t5 d1", "~▾[U]", "t9 d0"]
+        );
+        assert_eq!(
+            folded_entries(&snapshot, &shell, &[&space("S")]),
+            ["▸[S]", "~▾[U]", "t9 d0"]
+        );
+        assert_eq!(
+            folded_entries(&snapshot, &shell, &[&space("S"), &space("U")]),
+            ["▸[S]", "~▸[U]"]
+        );
+        // Without headers, or by priority, there is nothing to click: the
+        // fold set is ignored.
+        for (sort, headers) in [
+            (AgentPanelSortConfig::Priority, true),
+            (AgentPanelSortConfig::Spaces, false),
+        ] {
+            let flat = config(sort, headers, true);
+            let mut rows = folded_entries(&snapshot, &flat, &[&space("S")]);
+            rows.sort();
+            assert_eq!(rows, ["t3 d0", "t5 d0", "t9 d0"], "{sort:?} {headers}");
+        }
+    }
+
+    #[test]
+    fn folding_changes_no_agent_numbering() {
+        let snapshot = two_spaces_with_a_worker();
+        let ordered =
+            crate::chrome::agents::ordered_agent_pane_ids(&snapshot, AgentPanelSortConfig::Spaces);
+        assert_eq!(ordered, ["t3", "t5", "t9"], "every agent keeps its index");
+    }
+
+    #[test]
+    fn a_header_draws_one_label_line_hit_below_its_gap() {
+        let snapshot = two_spaces_with_a_worker();
+        let shell = config(AgentPanelSortConfig::Spaces, true, true);
+        let mut buffer = Buffer::empty(Rect::new(0, 0, 30, 12));
+        let mut hits = crate::chrome::render::ShellHitMap::default();
+        let (mut scroll, mut reveal) = (0, false);
+        let folded = std::iter::once(
+            snapshot
+                .workspaces
+                .iter()
+                .find(|w| w.label == "S")
+                .unwrap()
+                .workspace_id
+                .clone(),
+        )
+        .collect();
+        crate::chrome::agents::render_agent_panel(
+            &mut buffer,
+            Rect::new(0, 0, 30, 12),
+            &snapshot,
+            &shell,
+            &folded,
+            &mut scroll,
+            &mut reveal,
+            &mut hits,
+        );
+        let lines = (0..12).map(|y| line_at(&buffer, y)).collect::<Vec<_>>();
+        let s_line = lines
+            .iter()
+            .position(|l| l.contains("▸ S"))
+            .expect("folded S");
+        let u_line = lines
+            .iter()
+            .position(|l| l.contains("▾ U"))
+            .expect("open U");
+        assert_eq!(u_line, s_line + 2, "a blank gap line sits above U's header");
+        assert!(!lines.iter().any(|l| l.contains("t3")));
+        let rects = hits
+            .extra
+            .agent_space_headers
+            .iter()
+            .map(|(rect, _)| (rect.y as usize, rect.height))
+            .collect::<Vec<_>>();
+        assert_eq!(rects, [(s_line, 1), (u_line, 1)], "label lines only");
+        let chevron = &buffer[(1, s_line as u16)];
+        assert_eq!(chevron.symbol(), "▸");
+        assert_eq!(chevron.fg, shell.palette.overlay0);
+    }
+
+    fn line_at(buffer: &Buffer, y: u16) -> String {
+        (0..buffer.area.width)
+            .map(|x| buffer[(x, y)].symbol())
+            .collect()
+    }
+
     fn line(buffer: &Buffer, width: u16) -> String {
         (0..width)
             .map(|x| buffer[(x, 0)].symbol())
@@ -232,7 +382,7 @@ mod nesting {
             AgentSidebarToken::TerminalTitleStripped,
         ]];
         let render = |snapshot: &ClientShellSnapshot, shell: &crate::chrome::ClientShellConfig| {
-            crate::chrome::agents::panel_rows(snapshot, shell)
+            crate::chrome::agents::panel_rows(snapshot, shell, &Default::default())
                 .into_iter()
                 .filter_map(|row| match row {
                     crate::chrome::agents::PanelRow::Agent(row) => {
@@ -273,10 +423,13 @@ mod nesting {
             vec![AgentSidebarToken::Agent],
         ];
         let snapshot = parent_and_worker(NEST);
-        let mut row = match crate::chrome::agents::panel_rows(&snapshot, &shell).remove(2) {
-            crate::chrome::agents::PanelRow::Agent(row) => row,
-            _ => unreachable!(),
-        };
+        let mut row =
+            match crate::chrome::agents::panel_rows(&snapshot, &shell, &Default::default())
+                .remove(2)
+            {
+                crate::chrome::agents::PanelRow::Agent(row) => row,
+                _ => unreachable!(),
+            };
         row.depth = 2;
         let mut buffer = Buffer::empty(Rect::new(0, 0, 30, 2));
         crate::chrome::agents::render_agent_row(&mut buffer, Rect::new(0, 0, 30, 2), &row, &shell);

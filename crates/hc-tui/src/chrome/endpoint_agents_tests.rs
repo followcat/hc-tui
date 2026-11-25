@@ -5,6 +5,19 @@ use crate::config::AgentPanelSortConfig;
 use crate::project::project;
 use crate::sidebar::fixture::{agent, machine, view};
 
+/// No space is folded.
+fn no_folds() -> crate::chrome::agent_folds::AgentFolds<'static> {
+    use std::collections::{HashMap, HashSet};
+    use std::sync::LazyLock;
+    static LOCAL: LazyLock<HashSet<String>> = LazyLock::new(HashSet::new);
+    static REMOTE: LazyLock<HashMap<ClientEndpointId, HashSet<String>>> =
+        LazyLock::new(HashMap::new);
+    crate::chrome::agent_folds::AgentFolds {
+        local: &LOCAL,
+        remote: &REMOTE,
+    }
+}
+
 fn shell(sort: AgentPanelSortConfig, space_headers: bool) -> crate::chrome::ClientShellConfig {
     let mut shell = crate::chrome::ClientShellConfig::from_config(
         &crate::config::Config::default(),
@@ -46,15 +59,21 @@ fn panel(
     agent_view_label: Option<&str>,
     shell: &crate::chrome::ClientShellConfig,
 ) -> Vec<String> {
-    super::panel_entries(endpoints, &ClientEndpointId::Local, agent_view_label, shell)
-        .into_iter()
-        .map(|entry| match entry {
-            super::PanelEntry::Space { label, gap } => {
-                format!("{}[{label}]", if gap { "~" } else { "" })
-            }
-            super::PanelEntry::Agent(row) => row.agent.pane_id,
-        })
-        .collect()
+    super::panel_entries(
+        endpoints,
+        &ClientEndpointId::Local,
+        agent_view_label,
+        shell,
+        no_folds(),
+    )
+    .into_iter()
+    .map(|entry| match entry {
+        super::PanelEntry::Space { label, gap, .. } => {
+            format!("{}[{label}]", if gap { "~" } else { "" })
+        }
+        super::PanelEntry::Agent(row) => row.agent.pane_id,
+    })
+    .collect()
 }
 
 #[test]
@@ -123,6 +142,7 @@ fn agent_entry_index_counts_the_space_headers_above_it() {
             &ClientEndpointId::Local,
             None,
             &shell(AgentPanelSortConfig::Spaces, space_headers),
+            no_folds(),
             &ClientEndpointId::Remote("host-b".into()),
             "host-b/t5",
         )
@@ -135,6 +155,7 @@ fn agent_entry_index_counts_the_space_headers_above_it() {
             &ClientEndpointId::Local,
             None,
             &shell(AgentPanelSortConfig::Spaces, true),
+            no_folds(),
             &ClientEndpointId::Remote("host-a".into()),
             "host-b/t5",
         ),
@@ -166,17 +187,23 @@ fn workers_nest_under_their_own_machines_parent_and_never_across_machines() {
     let mut shell = shell(AgentPanelSortConfig::Spaces, true);
     shell.nest_worker_terminals = true;
     let depths = |shell: &crate::chrome::ClientShellConfig| {
-        super::panel_entries(&endpoints, &ClientEndpointId::Local, None, shell)
-            .into_iter()
-            .map(|entry| match entry {
-                super::PanelEntry::Space { label, gap } => {
-                    format!("{}[{label}]", if gap { "~" } else { "" })
-                }
-                super::PanelEntry::Agent(row) => {
-                    format!("{} d{}", row.agent.pane_id, row.agent.depth)
-                }
-            })
-            .collect::<Vec<_>>()
+        super::panel_entries(
+            &endpoints,
+            &ClientEndpointId::Local,
+            None,
+            shell,
+            no_folds(),
+        )
+        .into_iter()
+        .map(|entry| match entry {
+            super::PanelEntry::Space { label, gap, .. } => {
+                format!("{}[{label}]", if gap { "~" } else { "" })
+            }
+            super::PanelEntry::Agent(row) => {
+                format!("{} d{}", row.agent.pane_id, row.agent.depth)
+            }
+        })
+        .collect::<Vec<_>>()
     };
     assert_eq!(
         depths(&shell),
