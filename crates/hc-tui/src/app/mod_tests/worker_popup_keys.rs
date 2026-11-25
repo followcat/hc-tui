@@ -575,3 +575,40 @@ async fn a_shown_float_under_the_lock_is_unchanged_by_the_worker_chord() {
     assert!(app.popup.is_some(), "Esc never closes a float");
     assert_eq!(typed(&app), 2);
 }
+
+#[tokio::test]
+async fn a_locked_held_prefix_and_the_key_after_it_jump_a_paged_back_view_to_the_bottom() {
+    // `Pane::key` follows the tail again on any input to an active attach,
+    // so the held prefix and the key after it need no extra scroll.
+    let (mut app, _rx) = open_app();
+    app.keyboard_locked = true;
+    app.popup.as_mut().unwrap().pane.install_vt(scrollback_vt());
+    key(&mut app, Key::PageUp, Mods::NONE, KeyAction::Press);
+    assert_eq!(scrolled_back(&app), 5, "paged back");
+    ctrl_b(&mut app, KeyAction::Press);
+    assert_eq!(
+        scrolled_back(&app),
+        5,
+        "a held prefix has not reached the worker"
+    );
+    key(&mut app, Key::Char('x'), Mods::NONE, KeyAction::Press);
+    assert_eq!(typed(&app), 2, "prefix and x");
+    assert_eq!(
+        scrolled_back(&app),
+        0,
+        "the worker got keys, so the view is at the bottom"
+    );
+}
+
+#[tokio::test]
+async fn a_literal_prefix_jumps_a_paged_back_view_to_the_bottom() {
+    // Same rule, through the literal-prefix arm.
+    let (mut app, _rx) = open_app();
+    app.popup.as_mut().unwrap().pane.install_vt(scrollback_vt());
+    key(&mut app, Key::PageUp, Mods::NONE, KeyAction::Press);
+    assert_eq!(scrolled_back(&app), 5);
+    ctrl_b(&mut app, KeyAction::Press);
+    ctrl_b(&mut app, KeyAction::Press);
+    assert_eq!(typed(&app), 1);
+    assert_eq!(scrolled_back(&app), 0);
+}
