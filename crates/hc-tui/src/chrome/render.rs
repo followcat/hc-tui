@@ -100,7 +100,8 @@ pub(crate) struct ShellHitMap {
     pub global_launcher: Rect,
     /// Row hit areas of the open context menu, filled during draw.
     pub context_menu_rows: Vec<(Rect, usize)>,
-    /// Agent space header hits, kept apart so this struct stays small.
+    /// Hits kept apart from this flat list: the agent space headers and the
+    /// worker popup's buttons.
     pub extra: super::extra_hits::ExtraHits,
 }
 

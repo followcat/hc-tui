@@ -64,6 +64,12 @@ pub fn draw(app: &mut App, frame: &mut ratatui::Frame, _now: Instant) {
         .into_iter()
         .filter(|id| app.displayed_pane(id).is_some_and(|p| p.has_fresh_paint()))
         .collect::<Vec<_>>();
+    // The open worker popup is a view of its worker: `displayed_pane` never
+    // returns `popup.pane`, so it is acknowledged here.
+    let painted = painted
+        .into_iter()
+        .chain(app.viewed_worker_popup())
+        .collect::<Vec<_>>();
     for pane_id in painted {
         app.presentation.acknowledge(
             &mut app.projection,

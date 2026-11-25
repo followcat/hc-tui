@@ -6,6 +6,7 @@
 //! dismisses them — the reference's `popup_owner_tab_id` rule.
 use super::input::{MouseButton, MouseEventKind, MouseInput, TerminalKey};
 use super::pane::{Pane, Role, Spec};
+use super::worker_popup::WorkerPopup;
 use super::*;
 use crate::app::creation::program_env;
 use crate::config::{CustomCommandAction, CustomCommandKeybind};
@@ -67,6 +68,9 @@ pub(super) struct PopupState {
     /// The terminal showed up in the inventory at least once — only then
     /// does disappearance mean "exited" instead of "not yet published".
     pub seen: bool,
+    /// Set for a worker popup: a worker terminal opened from its agent row.
+    /// Closing it only detaches, and its keys follow the worker chords.
+    pub worker: Option<WorkerPopup>,
 }
 
 /// The `[[keys.command]]` geometry stashed while `terminal.run` is in
@@ -283,6 +287,7 @@ impl App {
             key: None,
             created_ms,
             seen: false,
+            worker: None,
         });
     }
 
@@ -304,12 +309,16 @@ impl App {
 
     /// Close the popup: detach and kill the owned terminal — the
     /// reference's `close_popup_pane` drops the runtime; the core's
-    /// equivalent is `terminal.kill` on the `hc-tui.popup` child.
+    /// equivalent is `terminal.kill` on the `hc-tui.popup` child. A worker
+    /// popup is only detached, never killed (`finish_worker_popup_close`).
     pub(super) fn close_popup(&mut self) {
         self.popup_selection = None;
         self.popup_gesture = None;
         if let Some(mut popup) = self.popup.take() {
             popup.pane.want(None);
+            if self.finish_worker_popup_close(&popup) {
+                return;
+            }
             // `rm` terminals are reaped on exit when the last attach
             // detaches, so the kill can legitimately arrive after the
             // core already removed it — `allow_gone` keeps that quiet.
@@ -352,7 +361,7 @@ impl App {
             } else {
                 let owner_gone = popup.owner_tab.is_some()
                     && popup.owner_tab != self.projection.snapshot.focused_tab_id;
-                if owner_gone || lost {
+                if owner_gone || lost || super::worker_popup::finished(&self.view, popup) {
                     self.close_popup();
                 }
             }
@@ -532,6 +541,9 @@ impl App {
         if self.popup_pending.is_some() {
             return true;
         }
+        if let Some(handled) = self.worker_popup_mouse(mouse) {
+            return handled;
+        }
         if let Some(hit) = self.hit_map.popup.clone() {
             if self.handle_popup_mouse_selection(&hit, mouse) {
                 return true;
@@ -601,6 +613,7 @@ impl App {
             )
         {
             self.close_peek();
+            return !self.press_goes_through(mouse);
         }
         true
     }
@@ -733,6 +746,7 @@ impl App {
                 .and_then(|t| t.labels.get("herdr.title").cloned())
                 .filter(|t| !t.is_empty())
                 .unwrap_or_else(|| "popup".to_owned());
+            let title = self.popup_border_title(title);
             Block::default()
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded)
@@ -773,6 +787,7 @@ impl App {
             pane_id: popup_terminal,
         });
         self.render_popup_selection(buf, inner);
+        self.draw_worker_titlebar(buf, geometry.frame);
         // The returned wish is surface-relative; shift into frame cells.
         self.want_cursor = super::draw::CursorWish {
             pos: wish.pos.map(|(x, y)| (surface.x + x, surface.y + y)),

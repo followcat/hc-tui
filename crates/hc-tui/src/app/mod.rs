@@ -71,6 +71,8 @@ mod wake;
 mod window_title;
 mod word_selection;
 mod worker_popup;
+mod worker_popup_mouse;
+mod worker_popup_titlebar;
 
 pub use input::UiEvent;
 pub use pane::{OpenAttach, PaneEv, Role, Spec};

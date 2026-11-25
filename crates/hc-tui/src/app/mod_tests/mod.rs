@@ -49,6 +49,9 @@ mod version_badge;
 mod view_sync;
 mod waiting;
 mod worker_popup;
+mod worker_popup_folds;
+mod worker_popup_life;
+mod worker_popup_open;
 
 use super::*;
 use ratatui::backend::TestBackend;

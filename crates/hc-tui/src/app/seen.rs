@@ -90,7 +90,11 @@ impl App {
         if self.outer_focused == Some(false) {
             return;
         }
-        let visible: std::collections::HashSet<String> = self.visible_panes().into_iter().collect();
+        let visible: std::collections::HashSet<String> = self
+            .visible_panes()
+            .into_iter()
+            .chain(self.worker_popup_terminal().map(str::to_owned))
+            .collect();
         self.seen_looked.retain(|id, _| visible.contains(id));
         for id in visible {
             let Some(term) = self.view.inventory.get(&id) else {
