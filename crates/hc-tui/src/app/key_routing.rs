@@ -172,14 +172,15 @@ impl App {
                 return None;
             }
             self.clear_popup_selection();
-            // A worker popup, unless the keyboard is locked, has its own
-            // two-key prefix chord and yields the four navigation chords
-            // (a float yields neither); a locked keyboard types everything
-            // into it.
-            let worker = self.worker_popup_terminal().is_some() && !self.keyboard_locked;
-            if worker && self.worker_chord(key, &press) {
+            // A worker popup has its own two-key prefix chord, which under
+            // the lock keeps only its exit, and, unless the keyboard is
+            // locked, yields the four navigation chords (a float yields
+            // neither); a locked keyboard types everything else into it.
+            let worker_open = self.worker_popup_terminal().is_some();
+            if worker_open && self.worker_chord(key, &press) {
                 return None;
             }
+            let worker = worker_open && !self.keyboard_locked;
             let persistent = self.popup.as_ref().is_some_and(|popup| popup.persistent);
             let intercepted = (persistent || worker)
                 .then(|| crate::input::resolve_direct_binding(&self.live.keybinds, &popup_combo))

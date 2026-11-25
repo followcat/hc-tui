@@ -22,6 +22,10 @@ pub(super) struct WorkerPopup {
     /// The address of the terminal the worker was started from, for the
     /// title bar.
     pub parent: String,
+    /// Under the keyboard lock, the prefix press held back until the next
+    /// key says whether it was the chord's first key: anything but `Esc`
+    /// sends it to the worker after all, ahead of that key.
+    pub held_prefix: Option<TerminalKey>,
 }
 
 /// The width of the title bar's button strip: `" ↗ keep "` then `" × "`.
@@ -168,7 +172,10 @@ impl App {
             key: None,
             created_ms,
             seen: true,
-            worker: Some(WorkerPopup { parent }),
+            worker: Some(WorkerPopup {
+                parent,
+                held_prefix: None,
+            }),
         });
         self.sched.mark_dirty(Instant::now());
     }
@@ -227,14 +234,19 @@ impl App {
     /// no hc-tui prefix binding can act on the parent underneath):
     /// prefix then `Esc` closes, then `Enter` keeps, then prefix again
     /// sends one literal prefix to the worker, anything else is dropped.
-    /// Every held-back press is recorded so its release never reaches the
-    /// worker; the key-repeat of a held-back press is ignored. Returns
-    /// whether the key was consumed.
+    /// Under the keyboard lock only the exit survives, so the popup can
+    /// always be closed: prefix then `Esc` closes, prefix then prefix sends
+    /// one prefix, and prefix then any other key sends the held prefix and
+    /// that key to the worker, so nothing typed is lost. Every held-back
+    /// press is recorded so its release never reaches the worker; the
+    /// key-repeat of a held-back press is ignored. Returns whether the key
+    /// was consumed.
     pub(super) fn worker_chord(&mut self, key: &TerminalKey, press: &TerminalKey) -> bool {
         let identity = press.identity();
         if key.input.action != KeyAction::Press {
             return self.popup_key_suppress.contains(&identity) || self.prefix.armed();
         }
+        let locked = self.keyboard_locked;
         let is_prefix = self
             .live
             .matches_prefix(&crate::input::terminal_key_of(press));
@@ -242,16 +254,24 @@ impl App {
             if is_prefix {
                 self.prefix.arm();
                 self.popup_key_suppress.insert(identity);
+                if let Some(worker) = self.popup.as_mut().and_then(|p| p.worker.as_mut()) {
+                    worker.held_prefix = locked.then(|| press.clone());
+                }
             }
             return is_prefix;
         }
         self.prefix.reset();
+        let held = self
+            .popup
+            .as_mut()
+            .and_then(|popup| popup.worker.as_mut())
+            .and_then(|worker| worker.held_prefix.take());
         match press.input.key {
             Key::Escape => {
                 self.popup_key_suppress.insert(identity);
                 self.close_popup();
             }
-            Key::Enter if press.input.mods == Mods::NONE => {
+            Key::Enter if press.input.mods == Mods::NONE && !locked => {
                 self.popup_key_suppress.insert(identity);
                 self.keep_worker_popup();
             }
@@ -260,11 +280,25 @@ impl App {
                 self.popup_key_suppress.remove(&identity);
                 self.popup_key(press);
             }
+            _ if let Some(held) = held => {
+                self.send_held_prefix(&held);
+                self.popup_key(press);
+            }
             _ => {
                 self.popup_key_suppress.insert(identity);
             }
         }
         true
+    }
+
+    /// Hand a prefix press held back under the lock to the worker after
+    /// all. Its release goes through too: the real one if the key is still
+    /// down, else a synthetic one right behind the press.
+    fn send_held_prefix(&mut self, held: &TerminalKey) {
+        self.popup_key(held);
+        if !self.popup_key_suppress.remove(&held.identity()) && self.host_reports_key_releases {
+            self.popup_key(&held.clone().with_action(KeyAction::Release));
+        }
     }
 
     /// Send host-committed text to the worker popup when one is open.

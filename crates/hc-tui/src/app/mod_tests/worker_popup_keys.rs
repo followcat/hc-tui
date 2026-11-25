@@ -4,6 +4,7 @@
 //! agent walk through the workers.
 use super::endpoint_nav::pending_attach;
 use super::image_paste::{core_id, operations, press_key};
+use super::pane_cache::{drive_until, next_attach, serve, with_openers};
 use super::worker_popup::{child, multi, opened, row_app, single, spaced};
 use super::*;
 use crate::app::float::{FloatEntry, FloatKey};
@@ -453,14 +454,124 @@ async fn ctrl_g_types_into_the_worker_instead_of_locking() {
     assert_eq!(typed(&app), 1);
 }
 
+/// Under the lock the prefix is held back only to see whether `Esc` follows.
 #[tokio::test]
-async fn a_locked_keyboard_types_every_chord_into_the_worker() {
+async fn a_locked_keyboard_types_every_chord_but_the_exit_into_the_worker() {
     let (mut app, _rx) = open_app();
     app.keyboard_locked = true;
-    // Neither the prefix chord nor a navigation chord acts while locked.
     ctrl_b(&mut app, KeyAction::Press);
-    assert!(!app.prefix.armed());
+    assert!(app.prefix.armed(), "held back, waiting for the next key");
+    assert_eq!(typed(&app), 0);
+    // A navigation chord is not a chord under the lock: the held prefix
+    // and the key both go to the worker.
     key(&mut app, Key::ArrowDown, Mods::ALT, KeyAction::Press);
+    assert!(!app.prefix.armed());
     assert_eq!(typed(&app), 2);
     assert_eq!(opened(&app), Some("t5"));
+}
+
+#[tokio::test]
+async fn a_locked_prefix_then_escape_closes_the_popup_with_no_kill() {
+    let (mut app, _rx) = open_app();
+    app.keyboard_locked = true;
+    ctrl_b(&mut app, KeyAction::Press);
+    key(&mut app, Key::Escape, Mods::NONE, KeyAction::Press);
+    assert!(app.popup.is_none());
+    assert!(!app.prefix.armed());
+    assert_eq!(app.pending_actions, 0);
+    assert!(app.keyboard_locked, "closing does not unlock");
+}
+
+#[tokio::test]
+async fn a_locked_prefix_then_prefix_sends_one_prefix_and_enter_does_not_keep() {
+    let (mut app, _rx) = open_app();
+    app.keyboard_locked = true;
+    ctrl_b(&mut app, KeyAction::Press);
+    ctrl_b(&mut app, KeyAction::Press);
+    assert_eq!(typed(&app), 1);
+    ctrl_b(&mut app, KeyAction::Press);
+    key(&mut app, Key::Enter, Mods::NONE, KeyAction::Press);
+    assert_eq!(typed(&app), 3, "prefix + Enter, never a keep");
+    assert_eq!(opened(&app), Some("t5"));
+    assert_eq!(app.pending_actions, 0);
+}
+
+#[tokio::test]
+async fn a_locked_held_prefixs_release_follows_it_to_the_worker() {
+    let (mut app, _rx) = open_app();
+    app.keyboard_locked = true;
+    app.host_reports_key_releases = true;
+    // Released before the next key: the release is replayed behind the press.
+    ctrl_b(&mut app, KeyAction::Press);
+    ctrl_b(&mut app, KeyAction::Release);
+    assert_eq!(typed(&app), 0, "nothing is sent while it is held back");
+    key(&mut app, Key::Char('x'), Mods::NONE, KeyAction::Press);
+    assert_eq!(typed(&app), 3, "prefix press, its release, then x");
+    // Still down at the next key: the real release is forwarded later.
+    ctrl_b(&mut app, KeyAction::Press);
+    key(&mut app, Key::Char('y'), Mods::NONE, KeyAction::Press);
+    assert_eq!(typed(&app), 5);
+    ctrl_b(&mut app, KeyAction::Release);
+    assert_eq!(typed(&app), 6);
+}
+
+#[tokio::test]
+async fn a_locked_prefix_then_x_reaches_the_worker_in_order() {
+    let mut app = single();
+    app.focused = Some("t3".into());
+    app.refresh_projection();
+    let mut requests = with_openers(&mut app);
+    app.open_worker_popup("t5".into());
+    let (core, params) = next_attach(&mut app, &mut requests).await;
+    let mut core = serve(core, &params, 1).await;
+    core.send_stream(1, hc_proto::frame::Kind::Data, b"\x1b[?9001l$ ")
+        .await;
+    drive_until(&mut app, |app| {
+        app.popup.as_ref().is_some_and(|p| p.pane.has_fresh_paint())
+    })
+    .await;
+    app.keyboard_locked = true;
+    ctrl_b(&mut app, KeyAction::Press);
+    key(&mut app, Key::Char('x'), Mods::NONE, KeyAction::Press);
+    let mut sent = Vec::new();
+    while sent.len() < 2 {
+        let read = tokio::select! {
+            frame = core.read_stream(1) => frame,
+            event = app.pane_rx.recv() => {
+                app.pane_event(event.expect("pane event"), Instant::now());
+                continue;
+            }
+        };
+        if read.kind == hc_proto::frame::Kind::Data {
+            sent.extend_from_slice(&read.payload);
+        }
+    }
+    assert_eq!(sent, b"\x02x", "the held prefix first, then x");
+}
+
+#[tokio::test]
+async fn a_shown_float_under_the_lock_is_unchanged_by_the_worker_chord() {
+    let mut app = single();
+    app.focused = Some("t3".into());
+    app.refresh_projection();
+    let key_f = FloatKey {
+        owner: app.focused_owner_key().unwrap(),
+        command: "alt+f".into(),
+    };
+    app.show_float(key_f, "t8".into(), None, None, 8);
+    let mut float = crate::sidebar::fixture::term("t8");
+    float.created_ms = 8;
+    float.labels.insert("hc-tui.popup".into(), "1".into());
+    let mut terms: Vec<_> = app.view.inventory.terminals().values().cloned().collect();
+    terms.push(float);
+    let seq = app.view.inventory.seq() + 1;
+    app.view.inventory_mut().replace(seq, terms);
+    app.reconcile_published_view();
+    app.keyboard_locked = true;
+    ctrl_b(&mut app, KeyAction::Press);
+    assert!(!app.prefix.armed(), "a float has no prefix chord");
+    assert_eq!(typed(&app), 1, "the prefix types into the float");
+    key(&mut app, Key::Escape, Mods::NONE, KeyAction::Press);
+    assert!(app.popup.is_some(), "Esc never closes a float");
+    assert_eq!(typed(&app), 2);
 }
