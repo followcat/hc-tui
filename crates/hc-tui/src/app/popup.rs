@@ -117,7 +117,14 @@ impl App {
                         .as_deref()
                         .and_then(|s| s.split_once('/').map(|(m, _)| m.to_owned()))
                 };
-                let prefix = super::creation::export_prefix(&self.focused_command_env());
+                // Only a command that names the variables gets the `export`
+                // prefix, so any other line goes out unchanged (the target
+                // machine may not run a POSIX shell).
+                let prefix = if command.command.contains("HC_FOCUSED_") {
+                    super::creation::export_prefix(&self.focused_command_env())
+                } else {
+                    String::new()
+                };
                 self.submit_action(Action::Exec {
                     line: format!("{prefix}{}", command.command),
                     machine,

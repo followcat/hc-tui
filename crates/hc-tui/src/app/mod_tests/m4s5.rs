@@ -188,11 +188,7 @@ async fn shell_command_dispatches_machine_exec() {
         core.answer_hello(true, &["machine.exec"], &[]).await;
         let exec = core.read_request().await;
         assert_eq!(exec["method"], "machine.exec");
-        assert_eq!(
-            exec["params"]["line"],
-            "export HC_FOCUSED_MACHINE='' HC_FOCUSED_SPACE='space-t1' HC_FOCUSED_TAB='tab' \
-             HC_FOCUSED_TERMINAL='t1'; echo hi"
-        );
+        assert_eq!(exec["params"]["line"], "echo hi");
         core.reply(&exec["id"], json!({"output": "hi\n"})).await;
     });
     app.run_custom_command(&command(CustomCommandAction::Shell, "echo hi"));

@@ -8,10 +8,12 @@ All notable changes to hc-tui are documented here. The format follows
 
 ### Added
 
-- Custom commands (`[[keys.command]]`, all types and persistent floats) get
-  `HC_FOCUSED_TERMINAL`, `HC_FOCUSED_MACHINE`, `HC_FOCUSED_SPACE` and
-  `HC_FOCUSED_TAB`: the terminal that had focus when the key was pressed.
-  Unset when nothing is focused. See docs/keys.md.
+- Custom commands (`[[keys.command]]`: Popup, pane and shell commands, and
+  persistent floats) get `HC_FOCUSED_TERMINAL`, `HC_FOCUSED_MACHINE`,
+  `HC_FOCUSED_SPACE` and `HC_FOCUSED_TAB`: the terminal that had focus when
+  the key was pressed. Unset when nothing is focused. A `shell` command gets
+  them only if it mentions them, and then needs a POSIX shell on its machine.
+  See docs/keys.md.
 - `[[keys.command]]` `machine = "local"` (default `"focused"`): a `shell`
   command runs on this computer instead of the focused pane's machine.
   `HC_FOCUSED_TERMINAL` and `HC_FOCUSED_MACHINE` still name the focused pane.

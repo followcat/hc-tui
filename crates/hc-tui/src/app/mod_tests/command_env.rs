@@ -120,7 +120,7 @@ async fn a_popup_on_a_remote_terminal_runs_there_with_its_local_id() {
 }
 
 #[tokio::test]
-async fn a_shell_command_exports_them_before_its_line() {
+async fn a_shell_command_naming_them_gets_the_export_prefix() {
     let mut app = remote_app();
     pending(&mut app);
     app.reconcile_published_view();
@@ -136,13 +136,22 @@ async fn a_shell_command_exports_them_before_its_line() {
         core.reply(&exec["id"], json!({"output": ""})).await;
         line
     });
-    app.run_custom_command(&command(CustomCommandAction::Shell, "echo hi"));
+    app.run_custom_command(&command(
+        CustomCommandAction::Shell,
+        "echo $HC_FOCUSED_TERMINAL",
+    ));
     settle(&mut app).await;
     let line = server.await.unwrap();
     assert!(line.starts_with("export "), "{line}");
     assert!(line.contains("HC_FOCUSED_TERMINAL='t3'"), "{line}");
     assert!(line.contains("HC_FOCUSED_MACHINE='host-a'"), "{line}");
-    assert!(line.ends_with("; echo hi"), "{line}");
+    assert!(line.ends_with("; echo $HC_FOCUSED_TERMINAL"), "{line}");
+}
+
+#[tokio::test]
+async fn a_shell_command_not_naming_them_is_sent_unchanged() {
+    let params = shell_exec_params(command(CustomCommandAction::Shell, "echo hi")).await;
+    assert_eq!(params["line"], "echo hi");
 }
 
 /// The `machine.exec` params a shell command sends while a remote pane
@@ -172,14 +181,14 @@ async fn shell_exec_params(command: CustomCommandKeybind) -> serde_json::Value {
 async fn machine_local_runs_here_but_keeps_the_focused_variables() {
     let params = shell_exec_params(CustomCommandKeybind {
         local: true,
-        ..command(CustomCommandAction::Shell, "echo hi")
+        ..command(CustomCommandAction::Shell, "echo $HC_FOCUSED_TERMINAL")
     })
     .await;
     assert!(params["on"].is_null(), "{params}");
     let line = params["line"].as_str().unwrap();
     assert!(line.contains("HC_FOCUSED_TERMINAL='t3'"), "{line}");
     assert!(line.contains("HC_FOCUSED_MACHINE='host-a'"), "{line}");
-    assert!(line.ends_with("; echo hi"), "{line}");
+    assert!(line.ends_with("; echo $HC_FOCUSED_TERMINAL"), "{line}");
 }
 
 #[tokio::test]
