@@ -57,8 +57,10 @@ impl App {
         // The reference's `apply_active_snapshot` copy arms: pane loss
         // unarms the mode, focus re-arms/disarms it.
         self.sync_copy_focus();
-        // Focus settled: park the old owner's float, restore the new
-        // one's — before `reconcile_popups` sees the publish.
+        // Focus settled: a worker popup belongs to the tab it opened over,
+        // park the old owner's float, restore the new one's — before
+        // `reconcile_popups` sees the publish.
+        self.close_stale_worker_popup();
         self.sync_float_focus();
     }
 
