@@ -90,8 +90,9 @@ async fn a_blocked_worker_lights_its_parents_tab_and_space() {
 }
 
 /// An app grouped by space, so a worker's row nests under its parent's.
-fn row_app(terms: Vec<Terminal>, machines: Vec<hc_proto::machine::MachineView>) -> App {
+pub(super) fn row_app(terms: Vec<Terminal>, machines: Vec<hc_proto::machine::MachineView>) -> App {
     let mut app = app_multi(terms, machines);
+    app.area = (120, 40);
     app.shell.nest_worker_terminals = true;
     app.shell.agent_panel_sort = crate::config::AgentPanelSortConfig::Spaces;
     pending_attach(&mut app);
@@ -99,7 +100,7 @@ fn row_app(terms: Vec<Terminal>, machines: Vec<hc_proto::machine::MachineView>) 
     app
 }
 
-fn spaced(address: &str, space: &str, created_ms: u64) -> Terminal {
+pub(super) fn spaced(address: &str, space: &str, created_ms: u64) -> Terminal {
     let mut term = agent(address, "working");
     term.created_ms = created_ms;
     term.labels.insert("herdr.space".into(), space.into());
@@ -107,7 +108,7 @@ fn spaced(address: &str, space: &str, created_ms: u64) -> Terminal {
     term
 }
 
-fn child(address: &str, parent: &str, created_ms: u64) -> Terminal {
+pub(super) fn child(address: &str, parent: &str, created_ms: u64) -> Terminal {
     let mut term = agent(address, "blocked");
     term.created_ms = created_ms;
     term.parent = Some(parent.into());
@@ -115,24 +116,22 @@ fn child(address: &str, parent: &str, created_ms: u64) -> Terminal {
     term
 }
 
-fn peeked(app: &App) -> Option<&str> {
-    app.peek.as_ref().map(|peek| peek.terminal.as_str())
+pub(super) fn opened(app: &App) -> Option<&str> {
+    app.worker_popup_terminal()
 }
 
-fn press(app: &mut App, rect: ratatui::layout::Rect) {
-    app.mouse_press(
-        &input::MouseInput {
-            kind: input::MouseEventKind::Down(input::MouseButton::Left),
-            col: rect.x,
-            row: rect.y,
-            mods: hc_vt::Mods::NONE,
-            sgr_position: None,
-        },
-        None,
-    );
+/// A left press at `rect`'s corner, through the whole mouse dispatch.
+pub(super) fn press(app: &mut App, rect: ratatui::layout::Rect) {
+    app.on_mouse(input::MouseInput {
+        kind: input::MouseEventKind::Down(input::MouseButton::Left),
+        col: rect.x,
+        row: rect.y,
+        mods: hc_vt::Mods::NONE,
+        sgr_position: None,
+    });
 }
 
-fn single() -> App {
+pub(super) fn single() -> App {
     row_app(
         vec![
             spaced("t3", "S", 0),
@@ -157,7 +156,7 @@ async fn a_click_on_a_worker_row_opens_it_and_leaves_focus_alone() {
         .unwrap()
         .0;
     press(&mut app, rect);
-    assert_eq!(peeked(&app), Some("t5"));
+    assert_eq!(opened(&app), Some("t5"));
     assert_eq!(app.focused.as_deref(), Some("t3"));
 }
 
@@ -175,7 +174,7 @@ async fn a_click_on_an_ordinary_row_still_focuses_its_pane() {
         .unwrap()
         .0;
     press(&mut app, rect);
-    assert!(app.peek.is_none());
+    assert!(app.popup.is_none());
     assert_eq!(app.focused.as_deref(), Some("t9"));
 }
 
@@ -190,11 +189,11 @@ async fn focus_agent_and_next_agent_open_a_worker_without_focusing_it() {
     );
     assert_eq!(ids, ["t3", "t5", "t9"]);
     app.on_action(A::FocusAgent(1), 120);
-    assert_eq!(peeked(&app), Some("t5"));
+    assert_eq!(opened(&app), Some("t5"));
     assert_eq!(app.focused.as_deref(), Some("t3"));
-    app.close_peek();
+    app.close_popup();
     app.on_action(A::NextAgent, 120);
-    assert_eq!(peeked(&app), Some("t5"));
+    assert_eq!(opened(&app), Some("t5"));
     assert_eq!(app.focused.as_deref(), Some("t3"));
 }
 
@@ -208,13 +207,13 @@ async fn the_mobile_switchers_agent_item_opens_a_worker_and_leaves_navigate() {
         endpoint_id: crate::chrome::snapshot::ClientEndpointId::Local,
         pane_id: "t5".into(),
     });
-    assert_eq!(peeked(&app), Some("t5"));
+    assert_eq!(opened(&app), Some("t5"));
     assert_eq!(app.mode, Mode::Normal);
     assert!(app.navigate_target.is_none());
     assert_eq!(app.focused.as_deref(), Some("t3"));
 }
 
-fn multi() -> App {
+pub(super) fn multi() -> App {
     row_app(
         vec![
             spaced("t1", "one", 0),
@@ -226,7 +225,7 @@ fn multi() -> App {
 }
 
 #[tokio::test]
-async fn a_click_on_a_remote_worker_row_opens_its_peek_and_keeps_focus() {
+async fn a_click_on_a_remote_worker_row_opens_it_and_keeps_focus() {
     let mut app = multi();
     app.focused = Some("t1".into());
     app.refresh_projection();
@@ -239,7 +238,7 @@ async fn a_click_on_a_remote_worker_row_opens_its_peek_and_keeps_focus() {
         .expect("the remote worker row is drawn")
         .0;
     press(&mut app, rect);
-    assert_eq!(peeked(&app), Some("host-a/t5"));
+    assert_eq!(opened(&app), Some("host-a/t5"));
     assert_eq!(app.focused.as_deref(), Some("t1"));
 }
 
@@ -249,6 +248,6 @@ async fn the_endpoint_keyboard_walk_opens_a_remote_worker_without_focusing_it() 
     app.focused = Some("host-a/t3".into());
     app.refresh_projection();
     app.on_action(A::NextAgent, 120);
-    assert_eq!(peeked(&app), Some("host-a/t5"));
+    assert_eq!(opened(&app), Some("host-a/t5"));
     assert_eq!(app.focused.as_deref(), Some("host-a/t3"));
 }

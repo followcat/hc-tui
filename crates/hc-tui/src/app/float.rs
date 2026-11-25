@@ -266,6 +266,7 @@ impl App {
             key: Some(key.clone()),
             created_ms: entry.created_ms,
             seen: entry.seen,
+            worker: None,
         });
         self.sched.mark_dirty(Instant::now());
     }
@@ -306,6 +307,7 @@ impl App {
             key: Some(key),
             created_ms,
             seen: false,
+            worker: None,
         });
         self.sched.mark_dirty(Instant::now());
     }

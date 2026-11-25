@@ -6,6 +6,7 @@
 //! dismisses them — the reference's `popup_owner_tab_id` rule.
 use super::input::{MouseButton, MouseEventKind, MouseInput, TerminalKey};
 use super::pane::{Pane, Role, Spec};
+use super::worker_popup::WorkerPopup;
 use super::*;
 use crate::app::creation::program_env;
 use crate::config::{CustomCommandAction, CustomCommandKeybind};
@@ -52,6 +53,9 @@ pub(super) struct PopupState {
     /// The terminal showed up in the inventory at least once — only then
     /// does disappearance mean "exited" instead of "not yet published".
     pub seen: bool,
+    /// Set for a worker popup: a worker terminal opened from its agent row.
+    /// Closing it only detaches, and its keys follow the worker chords.
+    pub worker: Option<WorkerPopup>,
 }
 
 /// The `[[keys.command]]` geometry stashed while `terminal.run` is in
@@ -252,6 +256,7 @@ impl App {
             key: None,
             created_ms,
             seen: false,
+            worker: None,
         });
     }
 
@@ -273,12 +278,19 @@ impl App {
 
     /// Close the popup: detach and kill the owned terminal — the
     /// reference's `close_popup_pane` drops the runtime; the core's
-    /// equivalent is `terminal.kill` on the `hc-tui.popup` child.
+    /// equivalent is `terminal.kill` on the `hc-tui.popup` child. A worker
+    /// popup only detaches: the worker is not the popup's to kill, and an
+    /// armed prefix of its chord handling never outlives it.
     pub(super) fn close_popup(&mut self) {
         self.popup_selection = None;
         self.popup_gesture = None;
         if let Some(mut popup) = self.popup.take() {
             popup.pane.want(None);
+            if popup.worker.is_some() {
+                self.prefix.reset();
+                self.sched.mark_dirty(Instant::now());
+                return;
+            }
             // `rm` terminals are reaped on exit when the last attach
             // detaches, so the kill can legitimately arrive after the
             // core already removed it — `allow_gone` keeps that quiet.
@@ -321,7 +333,7 @@ impl App {
             } else {
                 let owner_gone = popup.owner_tab.is_some()
                     && popup.owner_tab != self.projection.snapshot.focused_tab_id;
-                if owner_gone || lost {
+                if owner_gone || lost || super::worker_popup::finished(&self.view, popup) {
                     self.close_popup();
                 }
             }
@@ -488,6 +500,12 @@ impl App {
         if self.popup_pending.is_some() {
             return true;
         }
+        if self.click_through_popup(mouse) {
+            return false;
+        }
+        if let Some(handled) = self.worker_popup_press(mouse) {
+            return handled;
+        }
         if let Some(hit) = self.hit_map.popup.clone() {
             if self.handle_popup_mouse_selection(&hit, mouse) {
                 return true;
@@ -557,6 +575,8 @@ impl App {
             )
         {
             self.close_peek();
+            // A press on an agent row also acts on that row.
+            return !self.agent_row_at((mouse.col, mouse.row));
         }
         true
     }
@@ -647,17 +667,24 @@ impl App {
                 .and_then(|t| t.labels.get("herdr.title").cloned())
                 .filter(|t| !t.is_empty())
                 .unwrap_or_else(|| "popup".to_owned());
+            // A worker popup draws its own title bar over the border.
+            let title = if self.worker_popup_terminal().is_some() {
+                String::new()
+            } else {
+                title
+            };
             Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(palette.accent).bg(palette.panel_bg))
                 .style(Style::default().bg(palette.panel_bg))
                 .title(title)
         };
+        let inner = block.inner(geometry.outer);
+        block.render(geometry.outer, buf);
+        self.draw_worker_titlebar(buf, geometry.outer);
         let Some(popup) = self.popup.as_mut() else {
             return;
         };
-        let inner = block.inner(geometry.outer);
-        block.render(geometry.outer, buf);
         // The attach's cells are `terminal_cols` wide — one column
         // narrower than `inner` when the popup is wide, like the
         // reference's `terminal_width` asymmetry.
@@ -743,39 +770,21 @@ impl App {
         true
     }
 
-    /// `↗ keep`: adopt the peeked terminal into a fresh tab of the focused
-    /// space — the layout CAS plus `terminal.keep`, then dismiss the peek.
+    /// `↗ keep` on a peek: close it first, then keep its terminal.
     fn keep_peek(&mut self) {
         let Some(peek) = self.peek.take() else {
             return;
         };
+        let mut pane = peek.pane;
+        pane.want(None);
         let created_ms = self
             .view
             .inventory
             .get(&peek.terminal)
             .map(|t| t.created_ms)
             .unwrap_or(peek.created_ms);
-        let terminal = peek.terminal.clone();
-        let mut pane = peek.pane;
-        pane.want(None);
-        match self.creation(None, false) {
-            Ok(creation) => {
-                let labels = creation
-                    .params
-                    .labels
-                    .iter()
-                    .filter(|(k, _)| k.as_str() != "herdr.seen")
-                    .map(|(k, v)| (k.clone(), v.clone()))
-                    .collect();
-                self.submit_action(Action::PeekKeep {
-                    edit: creation.edit,
-                    terminal,
-                    created_ms,
-                    labels,
-                    order: creation.order,
-                });
-            }
-            Err(error) => self.show_notice("Keep unavailable", &error),
+        if let Err(error) = self.keep_terminal(peek.terminal, created_ms) {
+            self.show_notice("Keep unavailable", &error);
         }
     }
 }

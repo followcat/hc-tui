@@ -100,6 +100,8 @@ pub(crate) struct ShellHitMap {
     pub global_launcher: Rect,
     /// Row hit areas of the open context menu, filled during draw.
     pub context_menu_rows: Vec<(Rect, usize)>,
+    /// Hits the app draws over the shell (the worker popup's buttons).
+    pub extra: super::extra_hits::ExtraHits,
 }
 
 /// Diagnostics shown on endpoint rows. hc-tui has no saved-endpoint auth
