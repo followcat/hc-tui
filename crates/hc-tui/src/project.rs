@@ -379,6 +379,8 @@ pub(crate) fn project_with(
 pub(crate) mod cache;
 #[path = "project_snapshot.rs"]
 mod snapshot_builder;
+#[path = "project_worker_rows.rs"]
+mod worker_rows;
 #[cfg(test)]
 use snapshot_builder::endpoint_snapshot;
 use snapshot_builder::structured_snapshot_from_spaces;
@@ -418,3 +420,7 @@ fn app_document<'a>(view: &'a View, machine: Option<&str>) -> &'a serde_json::Va
 #[cfg(test)]
 #[path = "project_structure_tests.rs"]
 mod structure_tests;
+
+#[cfg(test)]
+#[path = "project_worker_tests.rs"]
+mod worker_tests;

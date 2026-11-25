@@ -142,36 +142,24 @@ pub(super) fn structured_snapshot_from_spaces(
                     right_click_passthrough: false,
                 });
                 if is_agent(term) {
-                    let record = selection.and_then(|selected| selected.status(term));
-                    agents.push(ClientShellAgent {
-                        pane_id: term.address.clone(),
-                        workspace_id: workspace_id.clone(),
-                        tab_id: tab_id.clone(),
-                        name: term.name.as_deref().map(clean),
-                        display_agent: record.map(|s| clean(&s.app)).filter(|a| !a.is_empty()),
-                        agent: record.map(|s| clean(&s.app)).filter(|a| !a.is_empty()),
-                        // `title` is the reported status title;
-                        // `terminal_title` is the program's OSC title —
-                        // distinct slots, never swapped.
-                        title: record.map(|s| clean(&s.title)).filter(|t| !t.is_empty()),
-                        terminal_title: if term.title.is_empty() {
-                            None
-                        } else {
-                            Some(clean(&term.title))
-                        },
-                        terminal_title_stripped: crate::chrome::title_text::stripped_terminal_title(
-                            &crate::sidebar::clean(&term.title),
-                        ),
-                        agent_status: status,
-                        // Presentation supplies a rank from origin clocks;
-                        // timestamps and turns are not chronology facts.
-                        state_change_seq: 0,
-                        state_labels: Vec::new(),
-                        tokens: Vec::new(),
+                    agents.push(worker_rows::agent_row(
+                        term,
+                        workspace_id,
+                        &tab_id,
+                        selection,
                         focused,
-                    });
+                        false,
+                    ));
                     agent_order.push(term.address.clone());
                 }
+                worker_rows::worker_agents(
+                    space,
+                    &term.address,
+                    (workspace_id, &tab_id),
+                    &term_by_id,
+                    &mut agents,
+                    &mut agent_order,
+                );
             }
             if tab_priority > workspace_priority {
                 workspace_priority = tab_priority;

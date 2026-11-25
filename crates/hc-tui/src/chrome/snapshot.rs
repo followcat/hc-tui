@@ -133,6 +133,9 @@ pub struct ClientShellAgent {
     pub state_labels: Vec<(String, String)>,
     pub tokens: Vec<(String, String)>,
     pub focused: bool,
+    /// A worker that has no tab and no pane: its row nests under its
+    /// parent's, and activating it opens the worker in a popup.
+    pub worker_popup: bool,
 }
 
 /// Endpoint connection state shown by the sidebar machine rows.
