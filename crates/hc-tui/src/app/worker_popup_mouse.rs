@@ -32,10 +32,11 @@ impl App {
                 .any(|(rect, _, _)| contains(*rect, point))
     }
 
-    /// A left press outside the open popup that lands on an agent row
-    /// dismisses the popup and returns `true` so the row handles the same
-    /// press: a float parks, a command popup closes, a worker popup
-    /// detaches. Any other outside press keeps its own handling.
+    /// With `nest_worker_terminals` on, a left press outside the open popup
+    /// that lands on an agent row or space header dismisses the popup and
+    /// returns `true` so the row handles the same press: a float parks, a
+    /// command popup closes, a worker popup detaches. Any other outside
+    /// press, and every press with the setting off, keeps its own handling.
     pub(super) fn click_through_popup(&mut self, mouse: &MouseInput) -> bool {
         let point = (mouse.col, mouse.row);
         let outside = self
@@ -43,7 +44,8 @@ impl App {
             .popup
             .as_ref()
             .is_some_and(|hit| !contains(hit.rect, point));
-        let through = mouse.kind == MouseEventKind::Down(MouseButton::Left)
+        let through = self.shell.nest_worker_terminals
+            && mouse.kind == MouseEventKind::Down(MouseButton::Left)
             && outside
             && self.agent_row_at(point);
         if through {

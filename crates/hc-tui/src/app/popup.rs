@@ -575,8 +575,10 @@ impl App {
             )
         {
             self.close_peek();
-            // A press on an agent row also acts on that row.
-            return !self.agent_row_at((mouse.col, mouse.row));
+            // With `nest_worker_terminals` on, a press on an agent row or
+            // header also acts on it.
+            return !(self.shell.nest_worker_terminals
+                && self.agent_row_at((mouse.col, mouse.row)));
         }
         true
     }

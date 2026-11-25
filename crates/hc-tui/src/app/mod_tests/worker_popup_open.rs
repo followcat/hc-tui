@@ -296,3 +296,71 @@ async fn a_row_press_closes_a_peek_and_acts_on_the_row() {
     assert!(app.peek.is_none());
     assert_eq!(app.focused.as_deref(), Some("t9"));
 }
+
+// ---- click-through is opt-in -------------------------------------------------
+
+/// `counting()` with `nest_worker_terminals` off and space headers on: the
+/// popups behave as upstream, where an outside press never reaches a row.
+fn flag_off() -> (App, mpsc::Receiver<crate::testcore::FakeCore>) {
+    let (mut app, rx) = counting();
+    app.shell.nest_worker_terminals = false;
+    app.shell.agent_panel_space_headers = true;
+    app.refresh_projection();
+    draw_to(&mut app, 120, 40);
+    (app, rx)
+}
+
+/// Press the `t9` row and then the first space header, with whatever popup
+/// is open, and assert neither acted: the focus is where it was, no fold
+/// toggled and no action (so no Kill) was submitted.
+fn assert_row_and_header_presses_are_swallowed(app: &mut App) {
+    draw_to(app, 120, 40);
+    let header = app.hit_map.extra.agent_space_headers[0].0;
+    let before = app.pending_actions;
+    click_row(app, "t9");
+    press(app, header);
+    assert_eq!(app.focused.as_deref(), Some("t3"), "no row action ran");
+    assert!(app.shell_state.collapsed_agent_spaces.is_empty(), "no fold");
+    assert_eq!(app.pending_actions, before, "no Kill, no other action");
+}
+
+#[tokio::test]
+async fn flag_off_a_shown_float_swallows_a_press_on_a_row_or_header() {
+    let (mut app, _rx) = flag_off();
+    let key = show_float(&mut app);
+    assert_row_and_header_presses_are_swallowed(&mut app);
+    assert!(
+        app.popup.as_ref().is_some_and(|p| p.persistent),
+        "still shown"
+    );
+    assert!(!app.floats.contains_key(&key), "and not parked");
+}
+
+#[tokio::test]
+async fn flag_off_a_command_popup_swallows_a_press_on_a_row_or_header() {
+    let (mut app, _rx) = flag_off();
+    app.run_custom_command(&command(false));
+    app.on_popup_spawned("t8".into(), 8);
+    let mut popup_term = crate::sidebar::fixture::term("t8");
+    popup_term.created_ms = 8;
+    popup_term.labels.insert("hc-tui.popup".into(), "1".into());
+    publish_with(&mut app, vec![popup_term]);
+    // The spawn's own `terminal.run` is already counted by the helper.
+    assert_row_and_header_presses_are_swallowed(&mut app);
+    assert_eq!(app.popup.as_ref().map(|p| p.terminal.as_str()), Some("t8"));
+}
+
+#[tokio::test]
+async fn flag_off_a_peek_closes_on_an_outside_press_but_the_row_never_acts() {
+    let (mut app, _rx) = flag_off();
+    app.open_peek("t5".into());
+    draw_to(&mut app, 120, 40);
+    let before = app.pending_actions;
+    click_row(&mut app, "t9");
+    assert!(
+        app.peek.is_none(),
+        "an outside press closes a peek, as upstream"
+    );
+    assert_eq!(app.focused.as_deref(), Some("t3"), "the row did not act");
+    assert_eq!(app.pending_actions, before);
+}

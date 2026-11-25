@@ -916,12 +916,14 @@ Everything else on the compared surfaces still diffs normally.
   float and closes a command popup. While it is open the worker counts
   as viewed: its completion is acknowledged once the popup has painted,
   and `herdr.seen` is written as for a visible pane.
-- **Popup row clicks.** Unlike the reference's popup swallow, a left press
-  outside any open popup that lands on an agent row or an agent space
-  header dismisses the popup (a float parks, a command popup closes, a
-  worker popup or peek detaches) and acts on that row or header (a header
-  folds or unfolds its space) in the same press. Other outside presses keep
-  their behavior.
+- **Popup row clicks.** Opt-in under `[ui] nest_worker_terminals = true`;
+  with it off, every popup swallows an outside press on an agent row or
+  space header, as the reference does (a peek still closes on it). With
+  it on, a left press outside any open popup that lands on an agent row
+  or an agent space header dismisses the popup (a float parks, a command
+  popup closes, a worker popup or peek detaches) and acts on that row or
+  header (a header folds or unfolds its space) in the same press. Other
+  outside presses keep their behavior.
 - **Command-pane unwind.** The reference registers `pane`/`popup`
   command terminals as `overlay_panes` and removes the split, restores
   the previous focus and clears zoom when the command exits. hc-tui
