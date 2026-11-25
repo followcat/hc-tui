@@ -41,6 +41,7 @@ mod update_source;
 mod version_badge;
 mod view_sync;
 mod waiting;
+mod worker_popup;
 
 use super::*;
 use ratatui::backend::TestBackend;

@@ -407,3 +407,45 @@ fn a_change_of_read_options_re_reads_every_endpoint() {
         "new options re-read the structure"
     );
 }
+
+/// App space `S` holding `t3`, plus a live worker `t5` of `t3`.
+fn worker_view(parent: Option<&str>) -> View {
+    let mut worker = term("t5");
+    worker.parent = parent.map(str::to_owned);
+    worker.created_ms = 1;
+    let mut view = view(vec![term("t3"), worker], vec![]);
+    set_doc(
+        &mut view,
+        None,
+        "herdr-app",
+        serde_json::json!({"spaces": [{"id": "S", "name": "S", "folder": "/home/user/proj",
+            "tabs": [{"id": "tab", "root": {"type": "block", "content": {"terminal": "t3"}}}]}]}),
+    );
+    view
+}
+
+#[test]
+fn a_changed_parent_re_reads_the_structure() {
+    let mut cache = ProjectCache::default();
+    let nested = worker_view(Some("t3"));
+    assert_eq!(
+        cache
+            .project_with(&nested, Some("t3"), NEST)
+            .snapshot
+            .workspaces
+            .len(),
+        1,
+        "the worker is hidden in its parent's space"
+    );
+    let orphaned = worker_view(None);
+    let cached = cache.project_with(&orphaned, Some("t3"), NEST);
+    assert_eq!(
+        cached.snapshot.workspaces.len(),
+        2,
+        "the orphan is placed on its own"
+    );
+    assert_same_projection(
+        &cached,
+        &crate::project::project_with_options(&orphaned, Some("t3"), NEST),
+    );
+}
