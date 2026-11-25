@@ -4,6 +4,21 @@ All notable changes to hc-tui are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+
+- Custom commands (`[[keys.command]]`: Popup, pane and shell commands, and
+  persistent floats) get `HC_FOCUSED_TERMINAL`, `HC_FOCUSED_MACHINE`,
+  `HC_FOCUSED_SPACE` and `HC_FOCUSED_TAB`: the terminal that had focus when
+  the key was pressed. Unset when nothing is focused. A `shell` command gets
+  them only if it mentions them, and then needs a POSIX shell on its machine.
+  See docs/keys.md.
+- `[[keys.command]]` `machine = "local"` (default `"focused"`): a `shell`
+  command runs on this computer instead of the focused pane's machine.
+  `HC_FOCUSED_TERMINAL` and `HC_FOCUSED_MACHINE` still name the focused pane.
+  Other types ignore it with a diagnostic.
+
 ## 0.1.20 — 2026-11-25
 
 ### Changed

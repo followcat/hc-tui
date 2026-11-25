@@ -144,3 +144,30 @@ fn displaced_bom_is_recovered_and_string_bom_is_preserved() {
         Some("tokyo-\u{feff}night")
     );
 }
+
+#[test]
+fn machine_defaults_to_focused_and_parses_local() {
+    let machines = |action: &str, extra: &str| {
+        let loaded = load_text(&format!(
+            "[[keys.command]]\nkey = 'alt+h'\ntype = '{action}'\ncommand = 'x'\n{extra}\n"
+        ));
+        let (live, diagnostics) = loaded.config.live_keybinds_with_diagnostics().unwrap();
+        (live.keybinds.custom_commands[0].local, diagnostics)
+    };
+    assert_eq!(machines("shell", ""), (false, vec![]));
+    assert_eq!(machines("shell", "machine = 'focused'"), (false, vec![]));
+    assert_eq!(machines("shell", "machine = 'local'"), (true, vec![]));
+    // A bad value and a non-shell type keep the default, with a diagnostic.
+    for (action, extra) in [
+        ("shell", "machine = 'elsewhere'"),
+        ("popup", "machine = 'local'"),
+        ("pane", "machine = 'local'"),
+    ] {
+        let (local, diagnostics) = machines(action, extra);
+        assert!(!local, "{action} {extra}");
+        assert!(
+            diagnostics.iter().any(|d| d.contains("machine")),
+            "{action} {extra}: {diagnostics:?}"
+        );
+    }
+}

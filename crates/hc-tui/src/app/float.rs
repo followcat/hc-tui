@@ -151,7 +151,11 @@ impl App {
             keep: true,
             no_notify: true,
             no_parent: true,
-            env: crate::app::creation::program_env(),
+            env: {
+                let mut env = crate::app::creation::program_env();
+                env.extend(self.focused_command_env());
+                env
+            },
             labels: BTreeMap::from([
                 (POPUP_LABEL.into(), "1".into()),
                 (FLOAT_OWNER_LABEL.into(), key.owner.clone()),

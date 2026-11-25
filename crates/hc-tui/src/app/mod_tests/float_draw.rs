@@ -18,6 +18,7 @@ fn command_labeled(label: &str, persistent: bool) -> CustomCommandKeybind {
         width: Some(PopupSize::Percent(80)),
         height: Some(PopupSize::Percent(80)),
         persistent,
+        local: false,
     }
 }
 

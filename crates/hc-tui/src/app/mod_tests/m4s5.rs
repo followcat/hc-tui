@@ -25,6 +25,7 @@ fn command(action: CustomCommandAction, line: &str) -> CustomCommandKeybind {
         width: Some(PopupSize::Percent(80)),
         height: Some(PopupSize::Percent(80)),
         persistent: false,
+        local: false,
     }
 }
 
