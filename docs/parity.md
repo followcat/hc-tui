@@ -829,7 +829,8 @@ Everything else on the compared surfaces still diffs normally.
   lock before the popup and never pages a popup's scrollback. A worker
   popup (`nest_worker_terminals`) takes the lock and paging rules too, but
   keeps the four navigation bindings and runs its own prefix chord, and its
-  popup-command chords reach the worker.
+  popup-command chords reach the worker. Under the lock only the chord's
+  exit remains, so the popup can always be closed: prefix then Esc.
 - **Parity harness known differences.** The harness excuses exactly three
   things, each by position and content and recorded per checkpoint under
   `known_differences` with the reason: the running version badge (one
