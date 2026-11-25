@@ -1,10 +1,11 @@
-//! Walking worker popups from the keyboard: previous/next agent open the
-//! next worker or close the popup and focus the agent, across machines, and
-//! a tab chord closes a worker popup whose tab lost focus.
+//! Moving around worker popups from the keyboard: previous/next agent open
+//! the next worker or close the popup and focus the agent, across machines,
+//! a tab chord closes a worker popup whose tab lost focus, and page keys
+//! page its scrollback.
 use super::endpoint_nav::pending_attach;
 use super::image_paste::{core_id, operations};
 use super::worker_popup::{child, opened, row_app, spaced};
-use super::worker_popup_keys::{key, nav_live};
+use super::worker_popup_keys::{ctrl_b, key, nav_live, open_app, typed};
 use super::*;
 use crate::app::float::{FloatEntry, FloatKey};
 use crate::popup_size::PopupSize;
@@ -186,4 +187,75 @@ async fn the_worker_popup_stays_while_its_tab_stays_focused() {
         app.mark_active_seen();
     }
     assert_eq!(opened(&app), Some("t5"));
+}
+
+// ---- paging the popup's own scrollback ------------------------------------
+
+/// Five content rows plus two pages of history, on the normal screen.
+fn scrollback_vt() -> hc_vt::Vt {
+    let mut vt = hc_vt::Vt::new(40, 5, 8192);
+    for i in 1..=20 {
+        vt.feed(format!("line-{i:02}\r\n").as_bytes());
+    }
+    vt
+}
+
+fn scrolled_back(app: &App) -> u64 {
+    let bar = app
+        .popup
+        .as_ref()
+        .and_then(|popup| popup.pane.vt_ref())
+        .and_then(|vt| vt.scrollbar())
+        .expect("scrollbar state");
+    bar.total - bar.offset - bar.len
+}
+
+#[tokio::test]
+async fn plain_page_keys_page_the_worker_popups_own_scrollback() {
+    let (mut app, _rx) = open_app();
+    app.popup.as_mut().unwrap().pane.install_vt(scrollback_vt());
+    key(&mut app, Key::PageUp, Mods::NONE, KeyAction::Press);
+    assert_eq!(scrolled_back(&app), 5, "one popup height");
+    assert_eq!(typed(&app), 0, "a paged key never reaches the worker");
+    assert_eq!(app.pane.input_backlog().0, 0, "the pane behind never moves");
+    key(&mut app, Key::Char('x'), Mods::NONE, KeyAction::Press);
+    assert_eq!(typed(&app), 1, "other keys still type");
+    assert_eq!(scrolled_back(&app), 0, "and jump the view to the bottom");
+}
+
+#[tokio::test]
+async fn a_locked_held_prefix_and_the_key_after_it_jump_a_paged_back_view_to_the_bottom() {
+    // `Pane::key` follows the tail again on any input to an active attach,
+    // so the held prefix and the key after it need no extra scroll.
+    let (mut app, _rx) = open_app();
+    app.keyboard_locked = true;
+    app.popup.as_mut().unwrap().pane.install_vt(scrollback_vt());
+    key(&mut app, Key::PageUp, Mods::NONE, KeyAction::Press);
+    assert_eq!(scrolled_back(&app), 5, "paged back");
+    ctrl_b(&mut app, KeyAction::Press);
+    assert_eq!(
+        scrolled_back(&app),
+        5,
+        "a held prefix has not reached the worker"
+    );
+    key(&mut app, Key::Char('x'), Mods::NONE, KeyAction::Press);
+    assert_eq!(typed(&app), 2, "prefix and x");
+    assert_eq!(
+        scrolled_back(&app),
+        0,
+        "the worker got keys, so the view is at the bottom"
+    );
+}
+
+#[tokio::test]
+async fn a_literal_prefix_jumps_a_paged_back_view_to_the_bottom() {
+    // Same rule, through the literal-prefix arm.
+    let (mut app, _rx) = open_app();
+    app.popup.as_mut().unwrap().pane.install_vt(scrollback_vt());
+    key(&mut app, Key::PageUp, Mods::NONE, KeyAction::Press);
+    assert_eq!(scrolled_back(&app), 5);
+    ctrl_b(&mut app, KeyAction::Press);
+    ctrl_b(&mut app, KeyAction::Press);
+    assert_eq!(typed(&app), 1);
+    assert_eq!(scrolled_back(&app), 0);
 }
