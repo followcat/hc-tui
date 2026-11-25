@@ -110,6 +110,8 @@ fn a_worker_row_carries_its_parents_ids_and_has_no_pane() {
         (&parent.workspace_id, &parent.tab_id)
     );
     assert_eq!(row.name.as_deref(), Some("five"));
+    assert_eq!(row.parent.as_deref(), Some("t3"));
+    assert_eq!(parent.parent, None);
     assert_eq!(row.agent_status, AgentStatus::Blocked);
     assert!(!row.focused);
     assert!(snapshot.panes.iter().all(|p| p.pane_id != "t5"));

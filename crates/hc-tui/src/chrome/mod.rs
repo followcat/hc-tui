@@ -3,6 +3,7 @@
 //! presentation without inventing hc-tui-specific output.
 
 pub(crate) mod agent_folds;
+pub(crate) mod agent_nesting;
 pub(crate) mod agent_rows;
 pub mod agents;
 pub(crate) mod config_diagnostic;

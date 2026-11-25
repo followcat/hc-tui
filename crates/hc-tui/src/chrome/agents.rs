@@ -271,3 +271,7 @@ pub(crate) fn render_agent_list<T>(
 #[cfg(test)]
 #[path = "agents_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "agent_nesting_tests.rs"]
+mod nesting_tests;

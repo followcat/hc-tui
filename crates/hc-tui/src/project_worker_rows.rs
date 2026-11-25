@@ -22,6 +22,7 @@ pub(super) fn agent_row(
         workspace_id: workspace_id.to_owned(),
         tab_id: tab_id.to_owned(),
         name: term.name.as_deref().map(clean),
+        parent: term.parent.clone().filter(|_| worker_popup),
         display_agent: record.map(|s| clean(&s.app)).filter(|a| !a.is_empty()),
         agent: record.map(|s| clean(&s.app)).filter(|a| !a.is_empty()),
         // `title` is the reported status title;

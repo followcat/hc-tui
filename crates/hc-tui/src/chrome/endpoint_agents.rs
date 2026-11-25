@@ -1,7 +1,5 @@
 // Derived from herdr src/client/shell/endpoint_agents.rs (Apache-2.0).
 
-use std::collections::HashMap;
-
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
@@ -22,7 +20,7 @@ pub(crate) fn render_collapsed(
     config: &super::ClientShellConfig,
     hits: &mut ShellHitMap,
 ) {
-    let rows = agent_rows(endpoints, active_endpoint_id, config);
+    let rows = agent_rows(endpoints, active_endpoint_id, config, false);
     for (index, row) in rows.into_iter().take(area.height as usize).enumerate() {
         let rect = Rect::new(area.x, area.y + index as u16, area.width, 1);
         if row.agent.focused {
@@ -205,7 +203,8 @@ fn panel_entries(
     let grouped = super::agent_folds::agent_panel_grouped(config, agent_view_label);
     let mut entries = Vec::new();
     let mut current: Option<(ClientEndpointId, String)> = None;
-    for row in agent_rows(endpoints, active_endpoint_id, config) {
+    let nest = grouped && config.nest_worker_terminals;
+    for row in agent_rows(endpoints, active_endpoint_id, config, nest) {
         let mut collapsed = false;
         if grouped && let Some(label) = row.space_label.clone() {
             let group = (row.endpoint_id.clone(), row.workspace_id.clone());
@@ -239,38 +238,43 @@ struct EndpointAgentRow {
     agent: super::agents::AgentRow,
 }
 
+/// Every agent row across machines in panel order. With `nest`, a worker's
+/// row is nested under its parent's, per machine and space; the depths are
+/// settled before the rows are built because a nested row's label differs.
 fn agent_rows(
     endpoints: &[ClientShellEndpoint],
     active_endpoint_id: &ClientEndpointId,
     config: &super::ClientShellConfig,
+    nest: bool,
 ) -> Vec<EndpointAgentRow> {
-    let mut rendered_rows = endpoints
-        .iter()
-        .filter_map(|endpoint| {
-            endpoint.snapshot.as_deref().map(|snapshot| {
-                snapshot
-                    .agents
-                    .iter()
-                    .filter_map(|agent| {
-                        super::agents::agent_row(
-                            snapshot,
-                            &agent.pane_id,
-                            config,
-                            Some(&endpoint.label),
-                        )
-                    })
-                    .map(|agent| ((endpoint.endpoint_id.clone(), agent.pane_id.clone()), agent))
-                    .collect::<Vec<_>>()
+    let aggregated = aggregate_agent_rows(endpoints, active_endpoint_id, config.agent_panel_sort);
+    let depths = if nest {
+        let keyed = aggregated
+            .iter()
+            .map(|row| {
+                (
+                    (&row.endpoint.endpoint_id, row.agent.workspace_id.as_str()),
+                    row.agent.pane_id.as_str(),
+                    row.agent.parent.as_deref(),
+                )
             })
-        })
-        .flatten()
-        .collect::<HashMap<_, _>>();
-
-    aggregate_agent_rows(endpoints, active_endpoint_id, config.agent_panel_sort)
+            .collect::<Vec<_>>();
+        super::agent_nesting::depths_by_group(&keyed)
+    } else {
+        vec![0; aggregated.len()]
+    };
+    aggregated
         .into_iter()
-        .filter_map(|row| {
-            let key = (row.endpoint.endpoint_id.clone(), row.agent.pane_id.clone());
-            let mut agent = rendered_rows.remove(&key)?;
+        .zip(depths)
+        .filter_map(|(row, depth)| {
+            let mut agent = super::agents::agent_row(
+                row.endpoint.snapshot,
+                &row.agent.pane_id,
+                config,
+                Some(row.endpoint.label),
+                depth > 0,
+            )?;
+            agent.depth = depth;
             agent.focused &= row.endpoint.endpoint_id == active_endpoint_id;
             Some(EndpointAgentRow {
                 endpoint_id: row.endpoint.endpoint_id.clone(),
