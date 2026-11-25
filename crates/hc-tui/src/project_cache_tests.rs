@@ -5,6 +5,18 @@
 use super::*;
 use crate::sidebar::fixture::{agent, machine, term, view};
 
+/// The flat-options forms of the cache's methods, so every pre-existing
+/// test keeps exercising the default (nesting off) behaviour unchanged.
+impl ProjectCache {
+    pub(crate) fn is_unchanged(&mut self, view: &View, selected: Option<&str>) -> bool {
+        self.is_unchanged_with(view, selected, ReadOptions::default())
+    }
+
+    pub(crate) fn project(&mut self, view: &View, selected: Option<&str>) -> Projection {
+        self.project_with(view, selected, ReadOptions::default())
+    }
+}
+
 fn labeled(address: &str, space: &str, tab: &str) -> Terminal {
     let mut terminal = term(address);
     terminal.labels.insert("herdr.space".into(), space.into());

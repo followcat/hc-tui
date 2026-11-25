@@ -1,5 +1,5 @@
 // Derived from herdr-app src/mirror.rs and src/layout.rs (Apache-2.0).
-use super::{Space, Tab, Tree};
+use super::{ReadOptions, Space, Tab, Tree};
 use hc_proto::terminal::Terminal;
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
@@ -111,9 +111,19 @@ fn app_node(
     }
 }
 
+/// `read_with` under the default (flat) options.
+pub fn read(terms: &[&Terminal], document: &Value, machine: Option<&str>) -> Vec<Space> {
+    read_with(terms, document, machine, ReadOptions::default())
+}
+
 /// Foreign document versions and malformed individual entries are tolerated.
 /// Only terminal membership matters: never execute mod data or rewrite it.
-pub fn read(terms: &[&Terminal], document: &Value, machine: Option<&str>) -> Vec<Space> {
+pub fn read_with(
+    terms: &[&Terminal],
+    document: &Value,
+    machine: Option<&str>,
+    _opts: ReadOptions,
+) -> Vec<Space> {
     let allowed = terms.iter().map(|t| t.address.as_str()).collect();
     let mut used = BTreeSet::new();
     let mut ids = BTreeSet::new();

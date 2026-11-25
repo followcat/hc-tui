@@ -81,7 +81,8 @@ pub struct ClientShellConfig {
     pub agents: AgentsSidebarConfig,
     pub agent_panel_sort: AgentPanelSortConfig,
     pub agent_panel_space_headers: bool,
-    /// `ui.nest_worker_terminals` — place workers next to their parent.
+    /// `ui.nest_worker_terminals` — no tab for a worker; a nested row opens it
+    /// in a popup.
     pub nest_worker_terminals: bool,
     pub status_indicators: StatusIndicatorStyle,
     pub popup_backdrop: PopupBackdrop,

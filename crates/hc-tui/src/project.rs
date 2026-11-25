@@ -21,6 +21,7 @@ use crate::chrome::snapshot::{
 };
 use crate::chrome::status::{AgentStatus, agent_status_from_word, status_priority};
 use crate::sidebar::clean;
+use crate::structure::ReadOptions;
 
 #[cfg(test)]
 #[path = "project_tests.rs"]
@@ -55,8 +56,12 @@ pub(crate) type EndpointSnapshot = (
 /// the same `project` traversal the shell draws — hc-tui layout overrides,
 /// then the `herdr-app` structure order, then label/repository/cwd
 /// fallback — flattened in endpoint order.
+///
+/// The traversal is a plain `fn` pointer in the watch parameters, so it
+/// cannot carry `ui.nest_worker_terminals`: it always ranks workers in the
+/// flat order.
 pub(crate) fn agent_traversal(view: &View) -> Vec<String> {
-    project(view, None)
+    project_with_options(view, None, ReadOptions::default())
         .endpoints
         .iter()
         .flat_map(|endpoint| {
@@ -211,19 +216,9 @@ fn remote_status(state: &str) -> ClientEndpointStatus {
 /// Project the whole view: local endpoint first (always — it owns the
 /// active snapshot), then `machine.list` entries and stray prefixes,
 /// remote rows sorted by name like the previous sidebar's grouping.
+#[cfg(test)]
 pub(crate) fn project(view: &View, selected: Option<&str>) -> Projection {
-    let own = layout_document(view).unwrap_or_default();
-    project_with(view, selected, &own, |machine, terms, selected_here| {
-        structured_snapshot(
-            terms,
-            selected_here,
-            view.generation,
-            view.version,
-            app_document(view, machine),
-            &own,
-            machine,
-        )
-    })
+    project_with_options(view, selected, ReadOptions::default())
 }
 
 /// The projection loop with the per-endpoint builder injected: `build`
@@ -247,12 +242,7 @@ pub(crate) fn project_with(
 
     let mut by_machine: BTreeMap<String, Vec<&Terminal>> = BTreeMap::new();
     for term in view.inventory.terminals().values() {
-        if own.closed.get(&term.address) == Some(&term.created_ms) {
-            continue;
-        }
-        // Popup-owned terminals are client chrome, not layout terminals —
-        // like the reference's client-local popup runtime.
-        if term.labels.contains_key(crate::app::popup::POPUP_LABEL) {
+        if !projected(term, &own.closed) {
             continue;
         }
         let key = machine_of(&term.address).unwrap_or("").to_string();
@@ -356,11 +346,14 @@ pub(crate) fn project_with(
 
 #[path = "project_cache.rs"]
 pub(crate) mod cache;
+#[path = "project_options.rs"]
+mod options;
+pub(crate) use options::{project_with_options, projected};
 #[path = "project_snapshot.rs"]
 mod snapshot_builder;
 #[cfg(test)]
 use snapshot_builder::endpoint_snapshot;
-use snapshot_builder::structured_snapshot;
+use snapshot_builder::structured_snapshot_from_spaces;
 
 pub(crate) fn layout_key(machine: Option<&str>, id: &str) -> String {
     let machine = machine.unwrap_or_default();
