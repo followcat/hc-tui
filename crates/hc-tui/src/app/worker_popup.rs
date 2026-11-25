@@ -280,13 +280,15 @@ impl App {
                 self.popup_key_suppress.remove(&identity);
                 self.popup_key(press);
             }
-            _ if let Some(held) = held => {
-                self.send_held_prefix(&held);
-                self.popup_key(press);
-            }
-            _ => {
-                self.popup_key_suppress.insert(identity);
-            }
+            _ => match held {
+                Some(held) => {
+                    self.send_held_prefix(&held);
+                    self.popup_key(press);
+                }
+                None => {
+                    self.popup_key_suppress.insert(identity);
+                }
+            },
         }
         true
     }
