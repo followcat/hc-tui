@@ -826,7 +826,10 @@ Everything else on the compared surfaces still diffs normally.
   `previous_agent`/`next_agent` bindings and Ctrl+G, and a locked
   keyboard sends its keys to the popup. Plain page keys page the popup's
   own scrollback under the pane rule. The reference routes Ctrl+G and the
-  lock before the popup and never pages a popup's scrollback.
+  lock before the popup and never pages a popup's scrollback. A worker
+  popup (`nest_worker_terminals`) takes the lock and paging rules too, but
+  keeps the four navigation bindings and runs its own prefix chord, and its
+  popup-command chords reach the worker.
 - **Parity harness known differences.** The harness excuses exactly three
   things, each by position and content and recorded per checkpoint under
   `known_differences` with the reason: the running version badge (one
