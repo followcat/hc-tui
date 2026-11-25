@@ -314,6 +314,9 @@ pub struct CustomCommandKeybind {
     /// hide/show instead of a modal one-shot. Resolved from the optional
     /// `persistent` key or the interactive-shell heuristic.
     pub persistent: bool,
+    /// hc-tui only, shell: run on this computer, not on the machine of the
+    /// focused pane.
+    pub local: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

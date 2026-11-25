@@ -110,10 +110,13 @@ impl App {
     pub(super) fn run_custom_command(&mut self, command: &CustomCommandKeybind) {
         match command.action {
             CustomCommandAction::Shell => {
-                let machine = self
-                    .focused
-                    .as_deref()
-                    .and_then(|s| s.split_once('/').map(|(m, _)| m.to_owned()));
+                let machine = if command.local {
+                    None
+                } else {
+                    self.focused
+                        .as_deref()
+                        .and_then(|s| s.split_once('/').map(|(m, _)| m.to_owned()))
+                };
                 let prefix = super::creation::export_prefix(&self.focused_command_env());
                 self.submit_action(Action::Exec {
                     line: format!("{prefix}{}", command.command),

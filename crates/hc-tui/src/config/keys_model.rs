@@ -21,6 +21,9 @@ pub struct CommandKeybindConfig {
     /// Per-tab persistent float when type = "popup". Unset resolves to
     /// `popup_command_is_shell` at registration.
     pub persistent: Option<bool>,
+    /// hc-tui only, shell: `"focused"` (default) runs on the focused pane's
+    /// machine, `"local"` on this computer.
+    pub machine: Option<String>,
 }
 
 impl CommandKeybindConfig {}
@@ -35,6 +38,7 @@ impl Default for CommandKeybindConfig {
             width: None,
             height: None,
             persistent: None,
+            machine: None,
         }
     }
 }

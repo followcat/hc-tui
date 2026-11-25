@@ -19,6 +19,7 @@ pub(super) fn command_labeled(label: &str, line: &str) -> CustomCommandKeybind {
         width: Some(PopupSize::Percent(80)),
         height: Some(PopupSize::Percent(80)),
         persistent: true,
+        local: false,
     }
 }
 
@@ -30,6 +31,7 @@ pub(super) fn ephemeral(line: &str) -> CustomCommandKeybind {
     CustomCommandKeybind {
         label: "alt+h".into(),
         persistent: false,
+        local: false,
         ..command(line)
     }
 }

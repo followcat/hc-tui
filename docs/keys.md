@@ -128,6 +128,14 @@ that machine's home directory, a `pane` in the space's folder. A `shell` command
 a shell line with the variables put in front as `export NAME='value'; `, so it sees the same variables. A persistent
 float gets the values from the moment it was first started, not from later key presses.
 
+#### `machine = "local"`: run on this computer
+
+hc-tui only: a `shell` command runs on the machine of the focused terminal. Set `machine = "local"` (default
+`"focused"`) to run it on this computer even when the focused pane is on another machine, for example to raise a
+window on your desktop. `HC_FOCUSED_TERMINAL` and `HC_FOCUSED_MACHINE` are unchanged, so the command still knows which
+remote terminal was focused. `popup`, `pane` and `plugin_action` commands ignore `machine` (with a diagnostic), as does
+any value other than `"focused"` or `"local"`.
+
 ### Floating terminal
 
 A `[[keys.command]]` entry binds a key to a command. With `type = "popup"`, the command runs in a floating terminal over

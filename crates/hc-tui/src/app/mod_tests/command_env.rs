@@ -20,6 +20,7 @@ fn command(action: CustomCommandAction, line: &str) -> CustomCommandKeybind {
         width: None,
         height: None,
         persistent: false,
+        local: false,
     }
 }
 
@@ -142,4 +143,47 @@ async fn a_shell_command_exports_them_before_its_line() {
     assert!(line.contains("HC_FOCUSED_TERMINAL='t3'"), "{line}");
     assert!(line.contains("HC_FOCUSED_MACHINE='host-a'"), "{line}");
     assert!(line.ends_with("; echo hi"), "{line}");
+}
+
+/// The `machine.exec` params a shell command sends while a remote pane
+/// (`host-a/t3`) is focused.
+async fn shell_exec_params(command: CustomCommandKeybind) -> serde_json::Value {
+    let mut app = remote_app();
+    pending(&mut app);
+    app.reconcile_published_view();
+    let mut rx = operations(&mut app);
+    core_id(&mut app, "core-fake-1");
+    let server = tokio::spawn(async move {
+        let mut core = rx.recv().await.unwrap();
+        core.read_hello().await;
+        core.answer_hello(true, &["machine.exec"], &[]).await;
+        let exec = core.read_request().await;
+        assert_eq!(exec["method"], "machine.exec");
+        let params = exec["params"].clone();
+        core.reply(&exec["id"], json!({"output": ""})).await;
+        params
+    });
+    app.run_custom_command(&command);
+    settle(&mut app).await;
+    server.await.unwrap()
+}
+
+#[tokio::test]
+async fn machine_local_runs_here_but_keeps_the_focused_variables() {
+    let params = shell_exec_params(CustomCommandKeybind {
+        local: true,
+        ..command(CustomCommandAction::Shell, "echo hi")
+    })
+    .await;
+    assert!(params["on"].is_null(), "{params}");
+    let line = params["line"].as_str().unwrap();
+    assert!(line.contains("HC_FOCUSED_TERMINAL='t3'"), "{line}");
+    assert!(line.contains("HC_FOCUSED_MACHINE='host-a'"), "{line}");
+    assert!(line.ends_with("; echo hi"), "{line}");
+}
+
+#[tokio::test]
+async fn the_default_still_runs_on_the_focused_machine() {
+    let params = shell_exec_params(command(CustomCommandAction::Shell, "echo hi")).await;
+    assert_eq!(params["on"], "host-a");
 }
