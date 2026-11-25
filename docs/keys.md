@@ -142,6 +142,14 @@ A locked keyboard sends its keys to the shown float, not to the pane behind it, 
 float. Plain `PageUp` and `PageDown` page the float's scrollback as described under
 [Scrolling a pane](#scrolling-a-pane).
 
+While a worker popup is open (`nest_worker_terminals`: click a worker's agent row), every key types into the worker,
+and the prefix works as a two-key chord of its own: prefix then `Esc` closes the popup (the worker keeps running),
+prefix then `Enter` keeps it as a tab, prefix then prefix sends one literal prefix to the worker, and any other key
+after the prefix is dropped. No prefix binding of hc-tui acts from inside the popup. The `previous_tab`/`next_tab`/
+`previous_agent`/`next_agent` chords still navigate — `next_agent` walks through the workers and on to the next
+agent — but popup-command chords such as `Alt+F` go to the worker, not to hc-tui. A click outside the popup, or
+on `×`, closes it; `↗ keep` keeps it as a tab.
+
 The persistent float draws a dressed frame: the panes behind it dim, a one-cell drop shadow sits right and below, and
 the corners are rounded. Its title carries the binding, the owning tab and the program, with the hide chord hinted on
 the right — the hint drops when the frame is too narrow to show it clear of the title. The border is the theme accent
