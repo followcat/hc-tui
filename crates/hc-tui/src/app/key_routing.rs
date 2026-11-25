@@ -45,8 +45,10 @@ impl App {
                 self.selection_highlight_clear_deadline = None;
                 self.sched.mark_dirty(Instant::now());
             }
-            self.reset_displayed_scroll();
-            self.pane.input_encoded(text.into_bytes());
+            if !self.worker_popup_text(text.as_bytes()) {
+                self.reset_displayed_scroll();
+                self.pane.input_encoded(text.into_bytes());
+            }
             return;
         }
         let mut key = self.host_erase_key(key);
@@ -126,7 +128,7 @@ impl App {
         }
     }
 
-    fn route_key_press(&mut self, key: &TerminalKey, width: u16) -> Option<u64> {
+    pub(super) fn route_key_press(&mut self, key: &TerminalKey, width: u16) -> Option<u64> {
         // Reprocessed repeats enter the same binding dispatcher. Only the key
         // sent to the program retains Repeat; routing itself tests the chord.
         let press = key.clone().with_action(Action::Press);
@@ -144,11 +146,14 @@ impl App {
         // shown float takes even the Ctrl+G lock chord and keeps the keys
         // while the keyboard is locked, so nothing lands on the pane
         // behind it; its own popup chord still works when locked, so the
-        // float can always be hidden and the lock reached again. A retained popup selection copies on Ctrl/Cmd+C
-        // first; every other key reaching the popup clears it. A
-        // persistent float yields only its popup binding chords: they run
-        // their command, so its own toggle key hides the float rather
-        // than typing into the program. Plain page keys page the popup's
+        // float can always be hidden and the lock reached again. A retained
+        // popup selection copies on Ctrl/Cmd+C first; every other key
+        // reaching the popup clears it. A persistent float yields only its
+        // popup binding chords: they run their command, so its own toggle
+        // key hides the float rather than typing into the program. A
+        // worker popup instead yields the four navigation chords and runs
+        // its prefix chord (`worker_chord`); popup-command chords reach the
+        // worker. Plain page keys page the popup's
         // own scrollback under the same rule as a pane's
         // (`page_keys.rs`); any key the program does get jumps the view
         // back to the bottom. Intercepted presses record their identity
@@ -167,15 +172,29 @@ impl App {
                 return None;
             }
             self.clear_popup_selection();
-            let intercepted = self
-                .popup
-                .as_ref()
-                .is_some_and(|popup| popup.persistent)
+            // A worker popup, unless the keyboard is locked, has its own
+            // two-key prefix chord and yields the four navigation chords
+            // (a float yields neither); a locked keyboard types everything
+            // into it.
+            let worker = self.worker_popup_terminal().is_some() && !self.keyboard_locked;
+            if worker && self.worker_chord(key, &press) {
+                return None;
+            }
+            let persistent = self.popup.as_ref().is_some_and(|popup| popup.persistent);
+            let intercepted = (persistent || worker)
                 .then(|| crate::input::resolve_direct_binding(&self.live.keybinds, &popup_combo))
                 .flatten();
+            use crate::input::{KeybindAction as A, KeybindMatch};
             match intercepted {
-                Some(crate::input::KeybindMatch::Command(command))
-                    if command.action == crate::config::CustomCommandAction::Popup =>
+                Some(KeybindMatch::Action(
+                    action @ (A::PreviousTab | A::NextTab | A::PreviousAgent | A::NextAgent),
+                )) if worker => {
+                    self.popup_key_suppress.insert(press.identity());
+                    self.on_action(action, width);
+                }
+                Some(KeybindMatch::Command(command))
+                    if persistent
+                        && command.action == crate::config::CustomCommandAction::Popup =>
                 {
                     self.popup_key_suppress.insert(press.identity());
                     self.run_custom_command(&command);

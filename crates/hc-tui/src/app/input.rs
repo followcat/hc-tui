@@ -207,6 +207,13 @@ impl Prefix {
         self.armed
     }
 
+    /// Arms the prefix without feeding it a key. A worker popup runs its own
+    /// two-key chord handling and uses this only as the armed flag, so the
+    /// host text-commit and report-all checks still see an armed prefix.
+    pub fn arm(&mut self) {
+        self.armed = true;
+    }
+
     /// Forgets a pending prefix (mode change, pane switch). Swallowed
     /// presses stay: their releases may still arrive.
     pub fn reset(&mut self) {

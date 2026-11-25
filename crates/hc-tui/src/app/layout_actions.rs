@@ -115,7 +115,13 @@ impl App {
                 if ids.is_empty() {
                     return;
                 }
-                let at = ids.iter().position(|id| Some(id) == focus.as_ref());
+                // An open worker popup is the position: it has no pane, so
+                // the focused parent would reopen the same worker forever.
+                let position = self
+                    .worker_popup_terminal()
+                    .map(str::to_owned)
+                    .or_else(|| focus.clone());
+                let at = ids.iter().position(|id| Some(id) == position.as_ref());
                 let index = match action {
                     A::FocusAgent(i) => i,
                     A::PreviousAgent => {
@@ -123,13 +129,8 @@ impl App {
                     }
                     _ => at.map_or(0, |at| (at + 1) % ids.len()),
                 };
-                let mut worker = None;
+                let mut target = None;
                 if let Some(id) = ids.get(index) {
-                    if self.worker_popup_agent(id) {
-                        worker = Some(id.clone());
-                    } else {
-                        self.focused = Some(id.clone());
-                    }
                     if matches!(action, A::PreviousAgent | A::NextAgent)
                         && !self.hit_map.agents.iter().any(|(_, visible)| visible == id)
                         && !self
@@ -147,9 +148,15 @@ impl App {
                             .unwrap_or(index);
                         self.shell_state.agent_scroll = row.min(self.hit_map.agent_max_scroll);
                     }
+                    target = Some((id.clone(), self.worker_popup_agent(id)));
                 }
-                if let Some(id) = worker {
-                    self.open_worker(id);
+                if let Some((id, worker)) = target {
+                    if worker {
+                        self.open_worker(id);
+                    } else {
+                        self.close_worker_popup();
+                        self.focused = Some(id);
+                    }
                 }
             }
             A::CyclePaneNext | A::CyclePanePrevious => {

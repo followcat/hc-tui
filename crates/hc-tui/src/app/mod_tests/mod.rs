@@ -42,6 +42,7 @@ mod version_badge;
 mod view_sync;
 mod waiting;
 mod worker_popup;
+mod worker_popup_keys;
 mod worker_popup_life;
 mod worker_popup_open;
 

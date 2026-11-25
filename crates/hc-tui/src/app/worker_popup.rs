@@ -3,16 +3,17 @@
 //! floating popup over the current tab without moving focus. The popup is
 //! an active attach: keys type into the worker, and closing it only
 //! detaches — the worker keeps running.
-use super::input::{MouseButton, MouseEventKind, MouseInput};
+use super::input::{MouseButton, MouseEventKind, MouseInput, TerminalKey};
 use super::mouse::contains;
 use super::pane::{Role, Spec};
 use super::popup::{PopupState, popup_fit};
 use super::*;
 use crate::chrome::extra_hits::PopupButtons;
-use crate::chrome::snapshot::{ClientShellAgent, ClientShellSnapshot};
+use crate::chrome::snapshot::{ClientEndpointId, ClientShellAgent, ClientShellSnapshot};
 use crate::chrome::status::{AgentStatus, status_color, status_icon, status_text};
 use crate::operations::Action;
 use crate::popup_size::{PopupSize, resolve_popup_geometry};
+use hc_vt::{Action as KeyAction, Key, Mods};
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -70,11 +71,26 @@ impl App {
             .map(|popup| popup.terminal.as_str())
     }
 
+    /// The pane the open worker popup types into.
+    pub(super) fn worker_popup_pane(&mut self) -> Option<&mut super::pane::Pane> {
+        self.popup
+            .as_mut()
+            .filter(|popup| popup.worker.is_some())
+            .map(|popup| &mut popup.pane)
+    }
+
     /// The open worker popup's terminal once its pane has a fresh paint: the
     /// worker counts as viewed (acknowledged, `herdr.seen` written).
     pub(super) fn viewed_worker_popup(&self) -> Option<String> {
         let popup = self.popup.as_ref().filter(|p| p.worker.is_some())?;
         popup.pane.has_fresh_paint().then(|| popup.terminal.clone())
+    }
+
+    /// The endpoint a terminal address belongs to.
+    pub(super) fn endpoint_of(address: &str) -> ClientEndpointId {
+        crate::project::machine_of(address).map_or(ClientEndpointId::Local, |m| {
+            ClientEndpointId::Remote(m.into())
+        })
     }
 
     /// A click on an agent row: open a worker's row in place, focus any
@@ -188,6 +204,64 @@ impl App {
         match self.keep_terminal(popup.terminal.clone(), created_ms) {
             Ok(()) => self.close_popup(),
             Err(error) => self.show_notice("Keep unavailable", &error),
+        }
+    }
+
+    /// The worker popup's two-key chord handling, run before the popup
+    /// sees a key. The prefix is held back from the worker, with
+    /// `self.prefix` only the armed flag (`Prefix::feed` is never called, so
+    /// no hc-tui prefix binding can act on the parent underneath):
+    /// prefix then `Esc` closes, then `Enter` keeps, then prefix again
+    /// sends one literal prefix to the worker, anything else is dropped.
+    /// Every held-back press is recorded so its release never reaches the
+    /// worker; the key-repeat of a held-back press is ignored. Returns
+    /// whether the key was consumed.
+    pub(super) fn worker_chord(&mut self, key: &TerminalKey, press: &TerminalKey) -> bool {
+        let identity = press.identity();
+        if key.input.action != KeyAction::Press {
+            return self.popup_key_suppress.contains(&identity) || self.prefix.armed();
+        }
+        let is_prefix = self
+            .live
+            .matches_prefix(&crate::input::terminal_key_of(press));
+        if !self.prefix.armed() {
+            if is_prefix {
+                self.prefix.arm();
+                self.popup_key_suppress.insert(identity);
+            }
+            return is_prefix;
+        }
+        self.prefix.reset();
+        match press.input.key {
+            Key::Escape => {
+                self.popup_key_suppress.insert(identity);
+                self.close_popup();
+            }
+            Key::Enter if press.input.mods == Mods::NONE => {
+                self.popup_key_suppress.insert(identity);
+                self.keep_worker_popup();
+            }
+            _ if is_prefix => {
+                // A second, distinct press: its release belongs to the worker.
+                self.popup_key_suppress.remove(&identity);
+                self.popup_key(press);
+            }
+            _ => {
+                self.popup_key_suppress.insert(identity);
+            }
+        }
+        true
+    }
+
+    /// Send host-committed text to the worker popup when one is open.
+    /// Returns whether it was taken.
+    pub(super) fn worker_popup_text(&mut self, text: &[u8]) -> bool {
+        match self.worker_popup_pane() {
+            Some(pane) => {
+                pane.input_encoded(text.to_vec());
+                true
+            }
+            None => false,
         }
     }
 
