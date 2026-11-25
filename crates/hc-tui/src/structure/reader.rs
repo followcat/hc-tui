@@ -1,5 +1,5 @@
 // Derived from herdr-app src/mirror.rs and src/layout.rs (Apache-2.0).
-use super::{ReadOptions, Space, Tab, Tree};
+use super::{ReadOptions, Space, Tab, Tree, workers};
 use hc_proto::terminal::Terminal;
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
@@ -122,7 +122,7 @@ pub fn read_with(
     terms: &[&Terminal],
     document: &Value,
     machine: Option<&str>,
-    _opts: ReadOptions,
+    opts: ReadOptions,
 ) -> Vec<Space> {
     let allowed = terms.iter().map(|t| t.address.as_str()).collect();
     let mut used = BTreeSet::new();
@@ -169,6 +169,7 @@ pub fn read_with(
                     custom_name: !name.is_empty(),
                     folder,
                     tabs: mapped,
+                    workers: Vec::new(),
                 });
             }
         }
@@ -196,8 +197,12 @@ pub fn read_with(
         .iter()
         .flat_map(|s| s.tabs.iter().map(|t| t.id.clone()))
         .collect::<BTreeSet<_>>();
+    let mut placed = workers::placed_in_spaces(&spaces);
     let mut pending = BTreeMap::<(usize, String), Vec<String>>::new();
     for terminal in rest {
+        if opts.nest_workers && workers::hide_worker(terminal, &mut spaces, &mut placed) {
+            continue;
+        }
         let (key, label) = crate::project::space_of(terminal);
         // A finished terminal still tagged into an app space whose layout no
         // longer lists it belongs to a tab the app closed; one tagged with an
@@ -215,10 +220,12 @@ pub fn read_with(
                 custom_name: terminal.labels.contains_key("herdr.space"),
                 folder: crate::project::repository::folder(terminal).to_owned(),
                 tabs: Vec::new(),
+                workers: Vec::new(),
             });
             spaces.len() - 1
         });
         let tab_id = format!("{key}/{}", crate::project::tab_key_of(terminal));
+        placed.insert(terminal.address.clone(), (at, tab_id.clone()));
         let tabs = &mut spaces[at].tabs;
         if let Some(tab) = tabs.iter_mut().find(|t| t.id == tab_id) {
             pending

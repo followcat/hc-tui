@@ -46,7 +46,12 @@ fn multi() -> View {
     )
 }
 
-fn set_doc(view: &mut View, machine: Option<&str>, name: &str, value: serde_json::Value) {
+pub(super) fn set_doc(
+    view: &mut View,
+    machine: Option<&str>,
+    name: &str,
+    value: serde_json::Value,
+) {
     let key = hc_proto::watch::DocKey {
         machine: machine.map(str::to_string),
         name: name.into(),
@@ -74,7 +79,7 @@ fn entry<'c>(cache: &'c ProjectCache, machine: Option<&str>) -> &'c EndpointEntr
     &cache.endpoints[&endpoint_key(machine)]
 }
 
-fn assert_same_projection(cached: &Projection, reference: &Projection) {
+pub(super) fn assert_same_projection(cached: &Projection, reference: &Projection) {
     assert_eq!(cached.active_endpoint_id, reference.active_endpoint_id);
     assert_eq!(cached.snapshot, reference.snapshot);
     assert_eq!(cached.layouts, reference.layouts);

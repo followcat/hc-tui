@@ -26,7 +26,6 @@ fn structurally_equal(a: &Terminal, b: &Terminal) -> bool {
         && (a.state == "finished") == (b.state == "finished")
         && a.cwd == b.cwd
         && a.parent == b.parent
-        && a.name == b.name
         && a.labels.get("herdr.space") == b.labels.get("herdr.space")
         && a.labels.get("herdr.tab") == b.labels.get("herdr.tab")
         && repository_equal(a.repository.as_ref(), b.repository.as_ref())
