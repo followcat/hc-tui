@@ -142,3 +142,59 @@ fn agent_entry_index_counts_the_space_headers_above_it() {
         "an agent is matched on its machine as well as its pane"
     );
 }
+
+#[test]
+fn workers_nest_under_their_own_machines_parent_and_never_across_machines() {
+    let worker = |address: &str, parent: &str, created_ms: u64| {
+        let mut worker = agent(address, "idle");
+        worker.parent = Some(parent.into());
+        worker.created_ms = created_ms;
+        worker
+    };
+    let terms = vec![
+        spaced("t1", "idle", "S"),
+        worker("t2", "t1", 1),
+        spaced("host-a/t3", "idle", "S"),
+        worker("host-a/t4", "host-a/t3", 1),
+        // Its parent lives on another machine: flat, in a space of its own.
+        worker("host-a/t9", "t1", 2),
+    ];
+    let machines = vec![machine("host-a", "connected")];
+    let nest = crate::structure::ReadOptions { nest_workers: true };
+    let endpoints =
+        crate::project::project_with_options(&view(terms, machines), Some("t1"), nest).endpoints;
+    let mut shell = shell(AgentPanelSortConfig::Spaces, true);
+    shell.nest_worker_terminals = true;
+    let depths = |shell: &crate::chrome::ClientShellConfig| {
+        super::panel_entries(&endpoints, &ClientEndpointId::Local, None, shell)
+            .into_iter()
+            .map(|entry| match entry {
+                super::PanelEntry::Space { label, gap } => {
+                    format!("{}[{label}]", if gap { "~" } else { "" })
+                }
+                super::PanelEntry::Agent(row) => {
+                    format!("{} d{}", row.agent.pane_id, row.agent.depth)
+                }
+            })
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        depths(&shell),
+        [
+            "[S]",
+            "t1 d0",
+            "t2 d1",
+            "~[S]",
+            "host-a/t3 d0",
+            "host-a/t4 d1",
+            "~[proj]",
+            "host-a/t9 d0",
+        ]
+    );
+    shell.nest_worker_terminals = false;
+    assert!(
+        depths(&shell)
+            .iter()
+            .all(|row| row.starts_with('~') || row.starts_with('[') || row.ends_with("d0"))
+    );
+}

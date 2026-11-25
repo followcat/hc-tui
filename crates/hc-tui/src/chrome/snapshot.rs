@@ -123,6 +123,9 @@ pub struct ClientShellAgent {
     pub workspace_id: String,
     pub tab_id: String,
     pub name: Option<String>,
+    /// For a worker with no tab (`worker_popup`), the address of the
+    /// terminal it was started from; `None` for every other agent.
+    pub parent: Option<String>,
     pub display_agent: Option<String>,
     pub agent: Option<String>,
     pub title: Option<String>,

@@ -22,6 +22,9 @@ pub(crate) struct AgentRow {
     pub status: AgentStatus,
     pub focused: bool,
     pub rows: Vec<Vec<ResolvedToken>>,
+    /// Nesting level under the row of the terminal this agent was started
+    /// from; 0 for an ordinary row.
+    pub depth: usize,
 }
 
 /// One entry of the agents panel: an agent, or (grouped by space) the
@@ -59,10 +62,17 @@ pub(crate) fn panel_rows(
         && snapshot.agent_view_label.is_none();
     let mut rows = Vec::new();
     let mut current: Option<&str> = None;
-    for pane_id in ordered_agent_pane_ids(snapshot, config.agent_panel_sort) {
-        let Some(row) = agent_row(snapshot, &pane_id, config, None) else {
+    let ordered = ordered_agent_pane_ids(snapshot, config.agent_panel_sort);
+    let depths = if grouped && config.nest_worker_terminals {
+        grouped_depths(snapshot, &ordered)
+    } else {
+        vec![0; ordered.len()]
+    };
+    for (pane_id, depth) in ordered.into_iter().zip(depths) {
+        let Some(mut row) = agent_row(snapshot, &pane_id, config, None, depth > 0) else {
             continue;
         };
+        row.depth = depth;
         if grouped {
             let workspace = snapshot
                 .agents
@@ -87,6 +97,27 @@ pub(crate) fn panel_rows(
         rows.push(PanelRow::Agent(row));
     }
     rows
+}
+
+/// The nesting depth of each of `ordered` (pane ids in display order) under
+/// the space header it falls below. A pane without an agent row or space
+/// would be skipped by the panel, so it also breaks any nesting around it.
+fn grouped_depths(snapshot: &ClientShellSnapshot, ordered: &[String]) -> Vec<usize> {
+    let rows = ordered
+        .iter()
+        .map(|pane_id| {
+            let agent = snapshot
+                .agents
+                .iter()
+                .find(|agent| agent.pane_id == *pane_id);
+            (
+                agent.map(|agent| agent.workspace_id.as_str()),
+                pane_id.as_str(),
+                agent.and_then(|agent| agent.parent.as_deref()),
+            )
+        })
+        .collect::<Vec<_>>();
+    super::agent_nesting::depths_by_group(&rows)
 }
 
 /// A space header: the space's name, dim, on the panel's last line of the
@@ -119,6 +150,7 @@ pub(crate) fn agent_row(
     pane_id: &str,
     config: &super::ClientShellConfig,
     machine: Option<&str>,
+    nested: bool,
 ) -> Option<AgentRow> {
     let agent = snapshot
         .agents
@@ -161,19 +193,24 @@ pub(crate) fn agent_row(
         .agent
         .as_deref()
         .and_then(super::detect::parse_agent_label);
+    // A nested worker row reads as the worker's own name, as the Herdr app
+    // shows it, instead of the title its program set.
+    let own_name = agent.name.as_deref().filter(|_| nested);
     let rows = tokens::agent_rows(
         &config.agents,
         tokens::AgentTokenContext {
             machine,
             workspace: &workspace.label,
             tab: tab_label,
-            pane: agent
-                .title
-                .as_deref()
-                .or_else(|| pane.and_then(|pane| pane.label.as_deref())),
+            pane: own_name.or_else(|| {
+                agent
+                    .title
+                    .as_deref()
+                    .or_else(|| pane.and_then(|pane| pane.label.as_deref()))
+            }),
             agent_label,
-            terminal_title: agent.terminal_title.as_deref(),
-            terminal_title_stripped: agent.terminal_title_stripped.as_deref(),
+            terminal_title: own_name.or(agent.terminal_title.as_deref()),
+            terminal_title_stripped: own_name.or(agent.terminal_title_stripped.as_deref()),
             canonical_agent,
             tokens: &tokens,
         },
@@ -184,6 +221,7 @@ pub(crate) fn agent_row(
         status: agent.agent_status,
         focused: agent.focused,
         rows,
+        depth: 0,
     })
 }
 
@@ -223,8 +261,17 @@ pub(crate) fn render_agent_row(
         row.rows.clone()
     };
     for (index, tokens) in rows.iter().take(rect.height as usize).enumerate() {
-        let indent = if index == 0 { 1 } else { 3 };
-        let mut spans = vec![ratatui::text::Span::raw(" ".repeat(indent))];
+        // A nested row hangs under its parent's: the first line starts with
+        // a connector, the later lines are pushed in by the same depth.
+        let (lead, indent) = match (index, row.depth) {
+            (0, 0) => (" ".to_owned(), 1),
+            (0, depth) => (format!(" {}", "  ".repeat(depth - 1)), 2 * depth + 1),
+            (_, depth) => (" ".repeat(3 + 2 * depth), 3 + 2 * depth),
+        };
+        let mut spans = vec![ratatui::text::Span::raw(lead)];
+        if index == 0 && row.depth > 0 {
+            spans.push(ratatui::text::Span::styled("└ ", secondary));
+        }
         spans.extend(resolved_token_spans(
             tokens,
             icon,
