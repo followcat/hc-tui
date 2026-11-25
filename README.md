@@ -117,6 +117,11 @@ cargo build --release -p hc-tui
 
 To run the tests: `git submodule update --init --depth 1`, then `cargo test`.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md): what belongs in hc-tui, and one purpose per pull request. Open an issue before
+a large pull request.
+
 ## Docs
 
 - [Install, upgrade, uninstall](docs/install.md)

@@ -3,8 +3,9 @@
 Each milestone ends with green CI and a short entry in `docs/progress.md` (done, measured, open).
 Commits stay small and reviewable, with each change under about 400 lines when possible.
 
-Herdr parity is a hard acceptance requirement. The reference is herdr
-0.9.5-followcat at `d00953e0`, with the user's herdr config read by default.
+Herdr parity is a hard acceptance requirement. The reference is herdr 0.9.5
+(fixtures recorded on 0.9.5-followcat at `d00953e0`, see `docs/parity.md`), with
+the user's herdr config read by default.
 Port its UI/config/input code directly with attribution; adapt core data rather
 than inventing presentation. Record every data mismatch and exact replacement
 in `docs/parity.md`. Same-size/config/fixture screens must match cells and

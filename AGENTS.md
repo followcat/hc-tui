@@ -1,6 +1,7 @@
 # Instructions for coding agents
 
 Read `docs/requirements.md` and `docs/plan.md` first. Work on one milestone task at a time.
+[CONTRIBUTING.md](CONTRIBUTING.md) says what belongs in hc-tui and how to shape a pull request.
 
 - **English** everywhere: code, comments, commit messages, docs.
 - **Small commits** with Conventional Commit subjects (`feat(sidebar): …`, `fix(proto): …`), each

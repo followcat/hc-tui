@@ -1,6 +1,6 @@
 # Sidebar data and presentation
 
-The sidebar follows herdr **0.9.5-followcat at `d00953e0`**. Its renderer,
+The sidebar follows herdr **0.9.5** (recorded on 0.9.5-followcat at `d00953e0`). Its renderer,
 configuration, glyphs, colors, ordering, truncation, selection and mouse
 behavior come from the reference source. See [parity](parity.md) for scope,
 data mappings and validation. M2 implementation and final conformance checks

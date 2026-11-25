@@ -1,8 +1,8 @@
 # hc-tui requirements
 
 hc-tui is a terminal UI client for [herdr-core](https://github.com/herdrdev/herdr-core) (`hc`).
-Its keys, interaction, layout and UI must match herdr **0.9.5-followcat** at
-`d00953e0`. This is a hard requirement: with the same terminal size, configuration,
+Its keys, interaction, layout and UI must match herdr **0.9.5** (fixtures are recorded on
+0.9.5-followcat at `d00953e0`; see [parity](parity.md) for the difference). This is a hard requirement: with the same terminal size, configuration,
 terminals and states, matching surfaces must be identical cell by cell, including
 glyphs, colors and attributes. It works on the local machine and over plain SSH.
 
