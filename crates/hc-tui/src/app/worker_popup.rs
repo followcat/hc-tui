@@ -105,6 +105,21 @@ impl App {
         }
     }
 
+    /// Close a worker popup whose tab lost focus: detach, no kill. Run as
+    /// soon as the projection settles rather than at the next watcher
+    /// publish, so a tab chord pressed inside the popup neither leaves it
+    /// over the new tab nor blocks that tab's float from coming back.
+    pub(super) fn close_stale_worker_popup(&mut self) {
+        let stale = self.popup.as_ref().is_some_and(|popup| {
+            popup.worker.is_some()
+                && popup.owner_tab.is_some()
+                && popup.owner_tab != self.projection.snapshot.focused_tab_id
+        });
+        if stale {
+            self.close_popup();
+        }
+    }
+
     /// Close the open worker popup, if any: detach, no kill.
     pub(super) fn close_worker_popup(&mut self) {
         if self.worker_popup_terminal().is_some() {

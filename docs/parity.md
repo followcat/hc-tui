@@ -793,7 +793,10 @@ Everything else on the compared surfaces still diffs normally.
   mobile switcher) opens the worker in an interactive popup over the
   current tab, without changing focus; `↗ keep` in its title bar adopts it
   as a tab (refused for a worker of another machine, since keeping labels
-  it with the focused machine's space), `×` or a click outside closes it,
+  it with the focused machine's space) — a new tab of the focused space
+  for an app space or one already promoted, and a new space of its own when
+  the focused space is an unlabelled folder space, since keeping mints a
+  fresh space id there — `×` or a click outside closes it,
   and prefix then `Esc`/`Enter` do the same from the keyboard. A finished
   worker with no placement is hidden. A worker whose parent is gone,
   closed, a popup or on another machine falls back to its folder space as

@@ -4,6 +4,7 @@ use super::image_paste::{core_id, get_reply, operations};
 use super::pane_cache::{drive_until, next_attach, serve, with_openers};
 use super::worker_popup::{multi, opened, press, single};
 use super::*;
+use crate::app::float::FloatKey;
 use crate::chrome::status::AgentStatus;
 use hc_proto::frame::Kind;
 
@@ -177,12 +178,12 @@ async fn the_worker_leaving_the_inventory_closes_the_popup() {
     assert!(app.popup.is_none());
 }
 
-/// `t5` is an idle reporter whose `done` completion nobody has seen.
-fn unseen_done_app() -> App {
+/// `id` is an idle reporter whose `done` completion nobody has seen.
+fn unseen_done_app(id: &str) -> App {
     let mut app = single();
     let mut terms: Vec<_> = app.view.inventory.terminals().values().cloned().collect();
     for term in &mut terms {
-        if term.address == "t5" {
+        if term.address == id {
             term.status.as_mut().unwrap().state = "done".into();
             term.turn = 5;
             term.labels.insert("herdr.seen".into(), "0".into());
@@ -201,19 +202,29 @@ fn seen_writes(app: &mut App) -> Vec<(String, u64)> {
         .collect()
 }
 
-#[tokio::test]
-async fn reading_a_done_worker_in_the_popup_acknowledges_and_marks_it_seen() {
-    let mut app = unseen_done_app();
-    assert_eq!(status_of(&app, "t5"), AgentStatus::Done);
-    let mut requests = with_openers(&mut app);
-    app.open_worker_popup("t5".into());
-    let (core, params) = next_attach(&mut app, &mut requests).await;
+/// Serve the popup's attach and drive it to a fresh paint. The returned
+/// wire must stay alive for the paint to stay fresh.
+async fn paint_popup(
+    app: &mut App,
+    requests: &mut mpsc::Receiver<(crate::testcore::FakeCore, hc_proto::terminal::AttachParams)>,
+) -> crate::testcore::FakeCore {
+    let (core, params) = next_attach(app, requests).await;
     let mut core = serve(core, &params, 1).await;
     core.send_stream(1, Kind::Data, b"\x1b[?9001lhello").await;
-    drive_until(&mut app, |app| {
+    drive_until(app, |app| {
         app.popup.as_ref().is_some_and(|p| p.pane.has_fresh_paint())
     })
     .await;
+    core
+}
+
+#[tokio::test]
+async fn reading_a_done_worker_in_the_popup_acknowledges_and_marks_it_seen() {
+    let mut app = unseen_done_app("t5");
+    assert_eq!(status_of(&app, "t5"), AgentStatus::Done);
+    let mut requests = with_openers(&mut app);
+    app.open_worker_popup("t5".into());
+    let _core = paint_popup(&mut app, &mut requests).await;
     draw_to(&mut app, 120, 40);
     assert_ne!(status_of(&app, "t5"), AgentStatus::Done, "acknowledged");
     app.share_seen();
@@ -222,7 +233,7 @@ async fn reading_a_done_worker_in_the_popup_acknowledges_and_marks_it_seen() {
 
 #[tokio::test]
 async fn an_unpainted_popup_is_not_acknowledged_until_it_paints() {
-    let mut app = unseen_done_app();
+    let mut app = unseen_done_app("t5");
     app.open_worker_popup("t5".into());
     draw_to(&mut app, 120, 40);
     assert_eq!(status_of(&app, "t5"), AgentStatus::Done);
@@ -232,12 +243,72 @@ async fn an_unpainted_popup_is_not_acknowledged_until_it_paints() {
     assert_eq!(seen_writes(&mut app), [("t5".to_owned(), 5)]);
 }
 
+/// A painted, non-worker popup over `t9`, whose `done` completion is
+/// unseen: a command popup, or a persistent float.
+async fn painted_other_popup(persistent: bool) -> (App, crate::testcore::FakeCore) {
+    let mut app = unseen_done_app("t9");
+    let mut requests = with_openers(&mut app);
+    let mut pane = app.new_pane();
+    pane.want(Some(pane::Spec {
+        terminal: "t9".into(),
+        role: pane::Role::Active,
+    }));
+    pane.on_view(&app.view);
+    let key = persistent.then(|| FloatKey {
+        owner: app.focused_owner_key().expect("a focused tab"),
+        command: "alt+f".into(),
+    });
+    app.popup = Some(popup::PopupState {
+        pane,
+        terminal: "t9".into(),
+        width: None,
+        height: None,
+        owner_tab: None,
+        persistent,
+        key,
+        created_ms: app.view.inventory.get("t9").unwrap().created_ms,
+        seen: true,
+        worker: None,
+    });
+    let core = paint_popup(&mut app, &mut requests).await;
+    (app, core)
+}
+
 #[tokio::test]
-async fn after_the_popup_closes_a_new_completion_is_not_marked_seen() {
-    let mut app = unseen_done_app();
+async fn a_done_terminal_in_a_command_popup_is_neither_acknowledged_nor_marked_seen() {
+    let (mut app, _core) = painted_other_popup(false).await;
+    assert!(app.popup.as_ref().unwrap().pane.has_fresh_paint());
+    draw_to(&mut app, 120, 40);
+    app.share_seen();
+    assert_eq!(status_of(&app, "t9"), AgentStatus::Done);
+    assert_eq!(seen_writes(&mut app), []);
+}
+
+#[tokio::test]
+async fn a_done_terminal_in_a_float_is_neither_acknowledged_nor_marked_seen() {
+    let (mut app, _core) = painted_other_popup(true).await;
+    assert!(app.popup.as_ref().unwrap().pane.has_fresh_paint());
+    draw_to(&mut app, 120, 40);
+    app.share_seen();
+    assert_eq!(status_of(&app, "t9"), AgentStatus::Done);
+    assert_eq!(seen_writes(&mut app), []);
+}
+
+#[tokio::test]
+async fn after_the_popup_closes_a_new_completion_is_neither_acknowledged_nor_marked_seen() {
+    let mut app = unseen_done_app("t5");
+    let mut requests = with_openers(&mut app);
     app.open_worker_popup("t5".into());
+    let _core = paint_popup(&mut app, &mut requests).await;
+    draw_to(&mut app, 120, 40);
+    assert_ne!(
+        status_of(&app, "t5"),
+        AgentStatus::Done,
+        "viewed while open"
+    );
     app.share_seen();
     assert_eq!(seen_writes(&mut app), [("t5".to_owned(), 5)]);
+
     app.close_popup();
     let mut terms: Vec<_> = app.view.inventory.terminals().values().cloned().collect();
     for term in &mut terms {
@@ -248,6 +319,7 @@ async fn after_the_popup_closes_a_new_completion_is_not_marked_seen() {
     let seq = app.view.inventory.seq() + 1;
     app.view.inventory_mut().replace(seq, terms);
     app.reconcile_published_view();
+    draw_to(&mut app, 120, 40);
     app.share_seen();
     assert_eq!(seen_writes(&mut app), [], "no longer viewed");
     assert_eq!(status_of(&app, "t5"), AgentStatus::Done);
