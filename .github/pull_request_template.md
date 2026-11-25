@@ -13,6 +13,7 @@
 
 - [ ] One purpose: refactors and unrelated fixes are in their own pull requests
 - [ ] `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`
+- [ ] A fixed bug has a test that fails before the fix
 - [ ] Works on official `hc`: fork-only facts render blank
 - [ ] Docs and `CHANGELOG.md` (`## Unreleased`)
 

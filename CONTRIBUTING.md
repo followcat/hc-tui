@@ -35,12 +35,22 @@ official `hc`, never as an error. See [core compatibility](docs/compatibility.md
 
 - These must pass: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings` and `cargo test`. CI also runs
   macOS and the integration suite against a real `hc` built from source.
-- New logic has tests. Fixtures use neutral data only: `host-a`, `alice`, `/home/user`.
+- New logic has tests. **A fixed bug comes with a test that fails before the fix and passes after it.** Test what
+  the user sees (cells on screen, a request sent to `hc`, a stored value), not the wiring, at the fastest level that
+  can catch it. Never add sleeps or retries to hide a race.
 - Never touch real `hc` sessions. Use a scratch session (see `docs/plan.md`, Testing rules).
 - Code ported from herdr or herdr-core starts with its source file and the Apache-2.0 notice, and the project is
   listed in `NOTICE`.
-- User-visible behaviour is documented in `docs/*.md`, with a `CHANGELOG.md` entry under `## Unreleased`.
+- User-visible behaviour is documented in `docs/*.md`, with a `CHANGELOG.md` entry under `## Unreleased`. Put a
+  new section where it belongs in its page, not at the end of the file, where parallel pull requests collide.
 - Source files stay under about 400 lines. Split them by responsibility.
+
+## Language and public history
+
+- English everywhere developers look: code, comments, test names, commit messages, pull requests, issues and docs.
+- The repository and its whole history are public. A private value committed and then removed is still published.
+  Fixtures use neutral data only (`host-a`, `alice`, `/home/user`, `acme-shop`). Screens captured from a real
+  terminal get their host, user, folder, branch and session names replaced before they are committed.
 
 ## In the description
 
@@ -51,3 +61,8 @@ official `hc`, never as an error. See [core compatibility](docs/compatibility.md
 - For visible changes, include screens. Text captures are fine.
 
 The [pull request template](.github/pull_request_template.md) asks for the same things.
+
+## Security issues
+
+Please do not open a public issue for a vulnerability. Report it privately through GitHub's
+[private vulnerability reporting](https://github.com/followcat/hc-tui/security/advisories/new).
