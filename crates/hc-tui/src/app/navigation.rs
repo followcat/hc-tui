@@ -329,6 +329,14 @@ impl App {
             T::Menu(_) => None,
         };
         if let Some(pane_id) = pane {
+            if self.worker_popup_agent(&pane_id) {
+                // A worker has no pane: leave the switcher and open it over
+                // the current tab, keeping focus where it is.
+                self.navigate_target = None;
+                self.mode = Mode::Normal;
+                self.open_worker(pane_id);
+                return;
+            }
             self.focused = Some(pane_id);
             self.refresh_projection();
             self.mark_active_seen();

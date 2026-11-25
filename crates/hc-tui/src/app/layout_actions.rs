@@ -123,8 +123,13 @@ impl App {
                     }
                     _ => at.map_or(0, |at| (at + 1) % ids.len()),
                 };
+                let mut worker = None;
                 if let Some(id) = ids.get(index) {
-                    self.focused = Some(id.clone());
+                    if self.worker_popup_agent(id) {
+                        worker = Some(id.clone());
+                    } else {
+                        self.focused = Some(id.clone());
+                    }
                     if matches!(action, A::PreviousAgent | A::NextAgent)
                         && !self.hit_map.agents.iter().any(|(_, visible)| visible == id)
                         && !self
@@ -142,6 +147,9 @@ impl App {
                             .unwrap_or(index);
                         self.shell_state.agent_scroll = row.min(self.hit_map.agent_max_scroll);
                     }
+                }
+                if let Some(id) = worker {
+                    self.open_worker(id);
                 }
             }
             A::CyclePaneNext | A::CyclePanePrevious => {

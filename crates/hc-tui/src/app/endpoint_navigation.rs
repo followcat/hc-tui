@@ -109,7 +109,7 @@ impl App {
         let Some(target) = agents.get(next).cloned() else {
             return;
         };
-        self.focus_pane(target.pane_id.clone());
+        self.activate_agent(&target.pane_id);
         self.reveal_endpoint_agent(&target);
     }
 
