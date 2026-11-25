@@ -29,6 +29,11 @@ pub(crate) struct CursorState {
     pub y: u16,
     pub visible: bool,
 }
+/// Keys longer than this (e.g. the "h / j / k / l / left / right" list) do not
+/// widen the key column; otherwise one long key pushes every description off
+/// its row and the unfiltered view wraps into stacked key/description lines.
+const MAX_KEY_COLUMN: usize = 24;
+
 fn help_lines(
     keybinds: &LiveKeybindConfig,
     query: &str,
@@ -43,6 +48,7 @@ fn help_lines(
     let key_width = groups
         .iter()
         .flat_map(|(_, entries)| entries.iter().map(|(key, _)| key.chars().count()))
+        .filter(|width| *width <= MAX_KEY_COLUMN)
         .max()
         .unwrap_or(8);
     if groups.is_empty() {
@@ -299,5 +305,44 @@ fn contrast(p: &Palette) -> ratatui::style::Color {
     match p.panel_bg {
         ratatui::style::Color::Reset => p.surface_dim,
         c => c,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn render_text(query: &str) -> Vec<String> {
+        // Several keys on one action make a long key label, as in real configs.
+        let root = crate::test_support::TestDir::new("hctui-help-render");
+        let path = root.join("config.toml");
+        std::fs::write(
+            &path,
+            "[keys]\nreload_config = ['alt+a', 'alt+b', 'alt+c', 'alt+d', 'alt+e', 'alt+f', 'alt+g', 'alt+h']\n",
+        )
+        .unwrap();
+        let live = crate::config::load(&path).config.live_keybinds();
+        let palette = Palette::catppuccin();
+        let mut buf = Buffer::empty(Rect::new(0, 0, 100, 40));
+        let state = HelpState {
+            query: TextEditor::from(query),
+            ..HelpState::default()
+        };
+        render_help_overlay(&mut buf, &state, &live, &palette).unwrap();
+        (0..buf.area.height)
+            .map(|y| (0..buf.area.width).map(|x| buf[(x, y)].symbol()).collect())
+            .collect()
+    }
+
+    #[test]
+    fn unfiltered_rows_keep_key_and_description_together() {
+        let rows = render_text("");
+        assert!(
+            rows.iter()
+                .any(|row| row.contains("lock / unlock keyboard shortcuts")
+                    && row.contains("ctrl+g")),
+            "{}",
+            rows.join("\n")
+        );
     }
 }
