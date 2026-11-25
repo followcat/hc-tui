@@ -781,6 +781,18 @@ Everything else on the compared surfaces still diffs normally.
   machines added (`hc machine add`), each machine's spaces get their own
   headers without naming the machine, so a space of the same name on two
   machines heads two groups.
+- **Agent-panel space folds.** hc-tui extends the grouped panel the way
+  the herdr app's desktop list folds by workspace: each header shows `▾`
+  or `▸`, a left click on its label line (never the blank gap above it)
+  folds the space's agents away or brings them back, and the fold is
+  remembered per machine across restarts, like the sidebar's workspace
+  group collapses (`collapsed_agent_spaces`, plus one list per remote
+  machine, in the same preferences file; older files load with nothing
+  folded). Agent navigation — previous/next/indexed agent, the mobile
+  switcher and the multi-machine walk — onto an agent of a folded space
+  unfolds it first. Folding never renumbers agents: the agent order still
+  lists every one. The flat and priority panels have no headers and ignore
+  folds. The reference's agent-list fold state is not verified.
 - **Workers with no tab.** Opt-in (`[ui] nest_worker_terminals = true`),
   hc-tui deliberately diverges from the reference sidebar's flat rows. A
   worker — a terminal started from another terminal — with no
@@ -902,10 +914,11 @@ Everything else on the compared surfaces still diffs normally.
   as viewed: its completion is acknowledged once the popup has painted,
   and `herdr.seen` is written as for a visible pane.
 - **Popup row clicks.** Unlike the reference's popup swallow, a left press
-  outside any open popup that lands on an agent row dismisses the popup
-  (a float parks, a command popup closes, a worker popup or peek detaches)
-  and acts on that row in the same press. Other outside presses keep their
-  behavior.
+  outside any open popup that lands on an agent row or an agent space
+  header dismisses the popup (a float parks, a command popup closes, a
+  worker popup or peek detaches) and acts on that row or header (a header
+  folds or unfolds its space) in the same press. Other outside presses keep
+  their behavior.
 - **Command-pane unwind.** The reference registers `pane`/`popup`
   command terminals as `overlay_panes` and removes the split, restores
   the previous focus and clears zoom when the command exits. hc-tui
