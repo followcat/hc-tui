@@ -4,7 +4,8 @@ The reference is herdr 0.9.5-followcat at
 `d00953e081389eb5f8ea006896fbf4a17b2f9dfc`. Build that revision in a separate
 checkout. Supply a JSON manifest containing `source_revision`, the absolute
 `binary` path, and its SHA-256 in `sha256`. The harness verifies the hash;
-keep this manifest and captures outside this repository.
+keep this manifest and captures outside this repository. This build differs from
+official herdr 0.9.5 only as `docs/parity.md` lists.
 
 Build the candidate and shared native cell decoder:
 

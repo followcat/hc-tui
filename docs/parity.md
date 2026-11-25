@@ -1,10 +1,20 @@
 # Herdr parity
 
-The acceptance target is **herdr 0.9.5-followcat**, source revision
-`d00953e081389eb5f8ea006896fbf4a17b2f9dfc`. With the same configuration,
-terminal size, programs and states, matching surfaces must produce the same
-cells, glyphs, colors and attributes, and react the same way to keys and
-mouse input.
+The acceptance target is official **herdr 0.9.5** (`v0.9.5`). With the same
+configuration, terminal size, programs and states, matching surfaces must
+produce the same cells, glyphs, colors and attributes, and react the same way
+to keys and mouse input.
+
+The fixtures below were recorded against herdr 0.9.5-followcat (source revision
+`d00953e081389eb5f8ea006896fbf4a17b2f9dfc`). It differs from 0.9.5 in two
+server-side status detections, which the TUI draws no differently, and in three
+client features that hc-tui carries as its own additions, not as parity claims:
+text selection kept in popups, the keyboard shortcut lock, and SSH clipboard
+image paste.
+
+Parity covers what the herdr TUI has. For hc concepts it never had (terminals
+started with a parent, machines, keep, documents), the reference is the
+official Herdr app; see [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 **Validation status:** the joint M2 review did **not** accept the shell as
 indistinguishable. M2.1 tightens the harness and covers the default 64-column
