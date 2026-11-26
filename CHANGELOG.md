@@ -12,6 +12,13 @@ All notable changes to hc-tui are documented here. The format follows
   fold and unfold their agents on a click, shown by a `▾` or `▸` chevron. Folds
   are remembered per machine across restarts, and moving to an agent of a
   folded space unfolds it.
+- `[ui] nest_worker_terminals` (default `false`): a worker, a terminal started
+  from another terminal, that has no placement of its own gets no tab. Its
+  agent row nests under its parent's row in the grouped agents panel, and
+  clicking the row opens the worker in an interactive popup with `↗ keep` and
+  `×` in its title bar; prefix then `Esc` or `Enter` close or keep it from the
+  keyboard. With the setting on, a click on an agent row or space header acts
+  through any open popup, dismissing it first.
 
 ## 0.1.22 — 2026-11-27
 
