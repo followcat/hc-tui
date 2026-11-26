@@ -6,6 +6,13 @@ All notable changes to hc-tui are documented here. The format follows
 
 ## Unreleased
 
+### Added
+
+- With `agent_panel_space_headers`, the grouped agents panel's space headers
+  fold and unfold their agents on a click, shown by a `▾` or `▸` chevron. Folds
+  are remembered per machine across restarts, and moving to an agent of a
+  folded space unfolds it.
+
 ## 0.1.21 — 2026-11-26
 
 ### Added

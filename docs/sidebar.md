@@ -130,11 +130,16 @@ space order); an explicit `agent_panel_sort = "spaces"` keeps space order.
 `agent_panel_space_headers = true` heads each space's run of agents in that
 order with the space's name, as the herdr app's grouped list does. With
 several machines, each machine's spaces are headed separately and the header
-does not name the machine.
+does not name the machine. A header carries a fold chevron (`▾` open, `▸`
+folded): a click on its label line folds the space down to its header, and
+another unfolds it. Folds work only in this grouped list, are remembered per
+machine like the workspace group collapses, and never change the agent
+numbering; moving to an agent of a folded space with the agent keys, the
+mobile switcher or the endpoint walk unfolds that space first.
 The priority sort uses the activity chronology and deterministic receipt
 rule below. Chrome choices the user makes by hand — the sort toggle,
-sidebar width, section split, collapse state and workspace group
-collapses — persist per endpoint under
+sidebar width, section split, collapse state, workspace group
+collapses and folded agent-panel spaces — persist per endpoint under
 `$XDG_STATE_HOME/hc-tui/client-shell/` and win over config at the next
 start, as herdr does.
 
