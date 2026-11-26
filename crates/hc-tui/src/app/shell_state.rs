@@ -11,6 +11,11 @@ pub(crate) struct ShellState {
     pub collapsed_groups: std::collections::HashSet<String>,
     pub remote_collapsed_groups:
         std::collections::HashMap<ClientEndpointId, std::collections::HashSet<String>>,
+    /// Folded space groups of the agents panel, by workspace id — local
+    /// endpoint and per remote machine, like the sidebar's group folds.
+    pub collapsed_agent_spaces: std::collections::HashSet<String>,
+    pub remote_collapsed_agent_spaces:
+        std::collections::HashMap<ClientEndpointId, std::collections::HashSet<String>>,
     pub workspace_scroll: usize,
     pub agent_scroll: usize,
     pub tab_scroll: usize,

@@ -123,24 +123,26 @@ impl App {
                     }
                     _ => at.map_or(0, |at| (at + 1) % ids.len()),
                 };
-                if let Some(id) = ids.get(index) {
+                if let Some(id) = ids.get(index).cloned() {
+                    self.unfold_agent_space_of(
+                        &crate::chrome::snapshot::ClientEndpointId::Local,
+                        &id,
+                    );
                     self.focused = Some(id.clone());
                     if matches!(action, A::PreviousAgent | A::NextAgent)
-                        && !self.hit_map.agents.iter().any(|(_, visible)| visible == id)
+                        && !self
+                            .hit_map
+                            .agents
+                            .iter()
+                            .any(|(_, visible)| *visible == id)
                         && !self
                             .hit_map
                             .endpoint_agents
                             .iter()
-                            .any(|(_, _, visible)| visible == id)
+                            .any(|(_, _, visible)| *visible == id)
                     {
                         // The scroll counts rendered entries, space headers included.
-                        let row = crate::chrome::agents::panel_rows(snapshot, &self.shell)
-                            .iter()
-                            .position(|row| {
-                                matches!(row, crate::chrome::agents::PanelRow::Agent(agent) if &agent.pane_id == id)
-                            })
-                            .unwrap_or(index);
-                        self.shell_state.agent_scroll = row.min(self.hit_map.agent_max_scroll);
+                        self.scroll_to_agent_row(&id, index);
                     }
                 }
             }

@@ -91,6 +91,10 @@ pub fn draw(app: &mut App, frame: &mut ratatui::Frame, _now: Instant) {
         collapsed_endpoints: &app.shell_state.collapsed_endpoints,
         collapsed_groups: &app.shell_state.collapsed_groups,
         remote_collapsed_groups: &app.shell_state.remote_collapsed_groups,
+        agent_folds: crate::chrome::agent_folds::AgentFolds {
+            local: &app.shell_state.collapsed_agent_spaces,
+            remote: &app.shell_state.remote_collapsed_agent_spaces,
+        },
         workspace_scroll: &mut app.shell_state.workspace_scroll,
         agent_scroll: &mut app.shell_state.agent_scroll,
         tab_scroll: &mut app.shell_state.tab_scroll,
