@@ -19,6 +19,10 @@ All notable changes to hc-tui are documented here. The format follows
   `HC_FOCUSED_TERMINAL` and `HC_FOCUSED_MACHINE` still name the focused pane.
   Other types ignore it with a diagnostic.
 
+### Fixed
+
+- **Persistent floats keep their configured size across restarts and config reloads.** Adopted floats look up `hc-tui.command` in `[[keys.command]]` on adoption, show, hide, and host resize (falling back to the stored or default size only when no binding matches), so an `80%` float stays `80%` instead of collapsing to half the pane.
+
 ## 0.1.20 — 2026-11-25
 
 ### Changed
