@@ -787,39 +787,21 @@ impl App {
         true
     }
 
-    /// `↗ keep`: adopt the peeked terminal into a fresh tab of the focused
-    /// space — the layout CAS plus `terminal.keep`, then dismiss the peek.
+    /// `↗ keep` on a peek: close it first, then keep its terminal.
     fn keep_peek(&mut self) {
         let Some(peek) = self.peek.take() else {
             return;
         };
+        let mut pane = peek.pane;
+        pane.want(None);
         let created_ms = self
             .view
             .inventory
             .get(&peek.terminal)
             .map(|t| t.created_ms)
             .unwrap_or(peek.created_ms);
-        let terminal = peek.terminal.clone();
-        let mut pane = peek.pane;
-        pane.want(None);
-        match self.creation(None, false) {
-            Ok(creation) => {
-                let labels = creation
-                    .params
-                    .labels
-                    .iter()
-                    .filter(|(k, _)| k.as_str() != "herdr.seen")
-                    .map(|(k, v)| (k.clone(), v.clone()))
-                    .collect();
-                self.submit_action(Action::PeekKeep {
-                    edit: creation.edit,
-                    terminal,
-                    created_ms,
-                    labels,
-                    order: creation.order,
-                });
-            }
-            Err(error) => self.show_notice("Keep unavailable", &error),
+        if let Err(error) = self.keep_terminal(peek.terminal, created_ms) {
+            self.show_notice("Keep unavailable", &error);
         }
     }
 }

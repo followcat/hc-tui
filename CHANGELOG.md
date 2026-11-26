@@ -6,6 +6,11 @@ All notable changes to hc-tui are documented here. The format follows
 
 ## Unreleased
 
+### Fixed
+
+- Peek's keep refuses a terminal on another machine than the focused one,
+  instead of labelling it with the focused machine's space.
+
 ## 0.1.21 — 2026-11-26
 
 ### Added
