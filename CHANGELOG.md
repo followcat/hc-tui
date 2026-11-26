@@ -6,6 +6,8 @@ All notable changes to hc-tui are documented here. The format follows
 
 ## Unreleased
 
+## 0.1.21 — 2026-11-26
+
 ### Added
 
 - Custom commands (`[[keys.command]]`: Popup, pane and shell commands, and
