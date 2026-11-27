@@ -6,6 +6,8 @@ All notable changes to hc-tui are documented here. The format follows
 
 ## Unreleased
 
+## 0.1.22 — 2026-11-27
+
 ### Changed
 
 - **Layered modal popups with dimmed backdrops, breathing padding, rounded borders, and drop shadows.** Modals, navigator, settings, update cards, dialogs, peek, floating popups, and context menus now separate visually from the background using theme-derived surface elevation and shadows, fix wide CJK characters straddling popup, overlay, and shadow edges, and add `[ui] popup_backdrop = "dim" | "none"` and `[ui] popup_shadow = true | false` toggles (`docs/keys.md`, `docs/parity.md`).
