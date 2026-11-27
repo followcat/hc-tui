@@ -91,8 +91,14 @@ impl App {
                 index
             }
             A::PreviousAgent | A::NextAgent => {
-                let focused_pane_id = self.projection.snapshot.focused_pane_id.clone();
-                let active_endpoint_id = self.projection.active_endpoint_id.clone();
+                // An open worker popup is the position, as in `layout_action`.
+                let (focused_pane_id, active_endpoint_id) = match self.worker_popup_terminal() {
+                    Some(worker) => (Some(worker.to_owned()), Self::endpoint_of(worker)),
+                    None => (
+                        self.projection.snapshot.focused_pane_id.clone(),
+                        self.projection.active_endpoint_id.clone(),
+                    ),
+                };
                 let current = agents.iter().position(|target| {
                     target.endpoint_id == active_endpoint_id
                         && Some(&target.pane_id) == focused_pane_id.as_ref()
@@ -110,7 +116,7 @@ impl App {
             return;
         };
         self.unfold_agent_space_of(&target.endpoint_id, &target.pane_id);
-        self.focus_pane(target.pane_id.clone());
+        self.activate_agent(&target.pane_id);
         self.reveal_endpoint_agent(&target);
     }
 

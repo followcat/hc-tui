@@ -123,6 +123,9 @@ pub struct ClientShellAgent {
     pub workspace_id: String,
     pub tab_id: String,
     pub name: Option<String>,
+    /// For a worker with no tab (`worker_popup`), the address of the
+    /// terminal it was started from; `None` for every other agent.
+    pub parent: Option<String>,
     pub display_agent: Option<String>,
     pub agent: Option<String>,
     pub title: Option<String>,
@@ -133,6 +136,9 @@ pub struct ClientShellAgent {
     pub state_labels: Vec<(String, String)>,
     pub tokens: Vec<(String, String)>,
     pub focused: bool,
+    /// A worker that has no tab and no pane: its row nests under its
+    /// parent's, and activating it opens the worker in a popup.
+    pub worker_popup: bool,
 }
 
 /// Endpoint connection state shown by the sidebar machine rows.

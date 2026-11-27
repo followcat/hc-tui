@@ -34,13 +34,14 @@ impl App {
             // the focused pane from this one comparison.
             self.shell_state.reveal_focused_agent = true;
         }
+        let opts = self.read_options();
         if !self
             .project_cache
-            .is_unchanged(&self.view, self.focused.as_deref())
+            .is_unchanged_with(&self.view, self.focused.as_deref(), opts)
         {
-            let new_projection = self
-                .project_cache
-                .project(&self.view, self.focused.as_deref());
+            let new_projection =
+                self.project_cache
+                    .project_with(&self.view, self.focused.as_deref(), opts);
             let old_projection = std::mem::replace(&mut self.projection, new_projection);
             if tab_focus_or_order_changed(&old_projection.snapshot, &self.projection.snapshot) {
                 self.shell_state.reveal_focused_tab = true;
@@ -56,8 +57,10 @@ impl App {
         // The reference's `apply_active_snapshot` copy arms: pane loss
         // unarms the mode, focus re-arms/disarms it.
         self.sync_copy_focus();
-        // Focus settled: park the old owner's float, restore the new
-        // one's — before `reconcile_popups` sees the publish.
+        // Focus settled: a worker popup belongs to the tab it opened over,
+        // park the old owner's float, restore the new one's — before
+        // `reconcile_popups` sees the publish.
+        self.close_stale_worker_popup();
         self.sync_float_focus();
     }
 
@@ -88,13 +91,15 @@ impl App {
         // provisional `project` runs through the incremental cache so an
         // unchanged endpoint never re-reads its structure.
         if self.mode == Mode::Normal && self.focus_missing() {
-            let provisional = (!self
-                .project_cache
-                .is_unchanged(&self.view, self.focused.as_deref()))
-            .then(|| {
-                self.project_cache
-                    .preview(&self.view, self.focused.as_deref())
-            });
+            let opts = self.read_options();
+            let provisional =
+                (!self
+                    .project_cache
+                    .is_unchanged_with(&self.view, self.focused.as_deref(), opts))
+                .then(|| {
+                    self.project_cache
+                        .preview_with(&self.view, self.focused.as_deref(), opts)
+                });
             let panes = match &provisional {
                 Some(p) => &p.snapshot.panes,
                 None => &self.projection.snapshot.panes,
@@ -157,7 +162,7 @@ impl App {
                 term.state == "finished"
                     && !self
                         .project_cache
-                        .preview(&self.view, Some(&focused))
+                        .preview_with(&self.view, Some(&focused), self.read_options())
                         .snapshot
                         .panes
                         .iter()

@@ -101,7 +101,7 @@ Unofficial. Not affiliated with or endorsed by the Herdr project.
   - transport recovery is passive (`resumed`), including visible size holders;
     real tab entry, focus or allocation changes may reclaim size;
   - off-tab recent panes display through `observe` wires and keep the size lease they had while visible, so a program
-    isn't resized when you switch away and back (user decision, 2026-11-09); peek panes stay strictly `observe`;
+    isn't resized when you switch away and back (user decision, 2026-11-09); peek panes stay strictly `observe`; the worker popup is interactive;
   - when another client owns the size, show a banner and offer "take control";
   - respond to RESIZE, FOCUS and FACTS.
 - **Scrollback:** history from the first paint, plus local history. A copy mode with keyboard and
@@ -123,7 +123,7 @@ Unofficial. Not affiliated with or endorsed by the Herdr project.
   - mark seen (`herdr.seen`); keep (`terminal.keep`).
 - **Input:** send a line (`terminal.send`), interrupt (`terminal.interrupt`), keys
   (`terminal.keys`).
-- **Workers:** peek at a worker in a popup.
+- **Workers:** peek at a worker in a popup; with `nest_worker_terminals`, open it interactively from its row.
 - **Machines:** list, add (`machine.add`; SSH must already work), connect, rename, remove.
 
 ### R7a Completion and attention

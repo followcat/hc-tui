@@ -43,6 +43,7 @@ async fn a_header_press_with_a_command_popup_is_swallowed() {
         key: None,
         created_ms: 8,
         seen: false,
+        worker: None,
     });
     draw_to(&mut app, 120, 40);
     let rect = header_of_s(&app);

@@ -77,6 +77,12 @@ pub struct UiConfig {
     /// Head each space's agents with the space's name when the agent panel
     /// is sorted by space, as the herdr app's grouped list does. Default: false.
     pub agent_panel_space_headers: bool,
+    /// hc-tui's own key: give a terminal started from another terminal (a
+    /// worker) with no placement of its own no tab and no pane. Its agent
+    /// row nests under the parent's and opens the worker in a popup, and it
+    /// is hidden once finished, as the herdr app does. Default: false (the
+    /// flat herdr TUI behaviour).
+    pub nest_worker_terminals: bool,
     /// Agent status indicator style. Saved values are "dots" or "symbols". Default: "dots".
     pub status_indicators: StatusIndicatorStyle,
     /// Backdrop treatment behind modal popups ("dim" or "none"). Default: "dim".
@@ -121,6 +127,7 @@ impl Default for UiConfig {
             window_title: super::window_title::default_window_title(),
             agent_panel_sort: AgentPanelSortConfig::Priority,
             agent_panel_space_headers: false,
+            nest_worker_terminals: false,
             status_indicators: StatusIndicatorStyle::Dots,
             popup_backdrop: PopupBackdrop::Dim,
             popup_shadow: true,

@@ -115,7 +115,13 @@ impl App {
                 if ids.is_empty() {
                     return;
                 }
-                let at = ids.iter().position(|id| Some(id) == focus.as_ref());
+                // An open worker popup is the position: it has no pane, so
+                // the focused parent would reopen the same worker forever.
+                let position = self
+                    .worker_popup_terminal()
+                    .map(str::to_owned)
+                    .or_else(|| focus.clone());
+                let at = ids.iter().position(|id| Some(id) == position.as_ref());
                 let index = match action {
                     A::FocusAgent(i) => i,
                     A::PreviousAgent => {
@@ -128,7 +134,6 @@ impl App {
                         &crate::chrome::snapshot::ClientEndpointId::Local,
                         &id,
                     );
-                    self.focused = Some(id.clone());
                     if matches!(action, A::PreviousAgent | A::NextAgent)
                         && !self
                             .hit_map
@@ -143,6 +148,12 @@ impl App {
                     {
                         // The scroll counts rendered entries, space headers included.
                         self.scroll_to_agent_row(&id, index);
+                    }
+                    if self.worker_popup_agent(&id) {
+                        self.open_worker(id);
+                    } else {
+                        self.close_worker_popup();
+                        self.focused = Some(id);
                     }
                 }
             }

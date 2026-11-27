@@ -1,28 +1,11 @@
 // Derived from herdr src/app/api_helpers.rs (Apache-2.0).
 use super::*;
 
-/// Build one endpoint's snapshot from its terminals. `selected` is the
-/// globally selected terminal address; focus ids only land on this
+/// Build one endpoint's snapshot from the `spaces` `structure::read` made of
+/// its terminals — the incremental cache reuses one endpoint's output while
+/// focus or the `hc-tui` layout document changes around it. `selected` is
+/// the globally selected terminal address; focus ids only land on this
 /// snapshot when they belong to this endpoint.
-pub(super) fn structured_snapshot(
-    terms: &[&Terminal],
-    selected: Option<&str>,
-    generation: u64,
-    revision: u64,
-    app: &serde_json::Value,
-    own: &crate::structure::Document,
-    machine: Option<&str>,
-) -> (
-    ClientShellSnapshot,
-    BTreeMap<String, crate::structure::TabLayout>,
-) {
-    let spaces = crate::structure::read(terms, app, machine);
-    structured_snapshot_from_spaces(&spaces, terms, selected, generation, revision, own, machine)
-}
-
-/// `structured_snapshot` on precomputed `spaces` — the incremental cache
-/// reuses one endpoint's `structure::read` output while focus or the
-/// `hc-tui` layout document changes around it.
 pub(super) fn structured_snapshot_from_spaces(
     spaces: &[crate::structure::Space],
     terms: &[&Terminal],
@@ -159,36 +142,24 @@ pub(super) fn structured_snapshot_from_spaces(
                     right_click_passthrough: false,
                 });
                 if is_agent(term) {
-                    let record = selection.and_then(|selected| selected.status(term));
-                    agents.push(ClientShellAgent {
-                        pane_id: term.address.clone(),
-                        workspace_id: workspace_id.clone(),
-                        tab_id: tab_id.clone(),
-                        name: term.name.as_deref().map(clean),
-                        display_agent: record.map(|s| clean(&s.app)).filter(|a| !a.is_empty()),
-                        agent: record.map(|s| clean(&s.app)).filter(|a| !a.is_empty()),
-                        // `title` is the reported status title;
-                        // `terminal_title` is the program's OSC title —
-                        // distinct slots, never swapped.
-                        title: record.map(|s| clean(&s.title)).filter(|t| !t.is_empty()),
-                        terminal_title: if term.title.is_empty() {
-                            None
-                        } else {
-                            Some(clean(&term.title))
-                        },
-                        terminal_title_stripped: crate::chrome::title_text::stripped_terminal_title(
-                            &crate::sidebar::clean(&term.title),
-                        ),
-                        agent_status: status,
-                        // Presentation supplies a rank from origin clocks;
-                        // timestamps and turns are not chronology facts.
-                        state_change_seq: 0,
-                        state_labels: Vec::new(),
-                        tokens: Vec::new(),
+                    agents.push(worker_rows::agent_row(
+                        term,
+                        workspace_id,
+                        &tab_id,
+                        selection,
                         focused,
-                    });
+                        false,
+                    ));
                     agent_order.push(term.address.clone());
                 }
+                worker_rows::worker_agents(
+                    space,
+                    &term.address,
+                    (workspace_id, &tab_id),
+                    &term_by_id,
+                    &mut agents,
+                    &mut agent_order,
+                );
             }
             if tab_priority > workspace_priority {
                 workspace_priority = tab_priority;
@@ -426,12 +397,13 @@ pub(super) fn endpoint_snapshot(
     generation: u64,
     revision: u64,
 ) -> ClientShellSnapshot {
-    structured_snapshot(
+    let spaces = crate::structure::read(terms, &serde_json::Value::Null, None);
+    structured_snapshot_from_spaces(
+        &spaces,
         terms,
         selected,
         generation,
         revision,
-        &serde_json::Value::Null,
         &crate::structure::Document::default(),
         None,
     )

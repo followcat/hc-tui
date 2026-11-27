@@ -173,6 +173,21 @@ A locked keyboard sends its keys to the shown float, not to the pane behind it, 
 float. Plain `PageUp` and `PageDown` page the float's scrollback as described under
 [Scrolling a pane](#scrolling-a-pane).
 
+A worker popup (`nest_worker_terminals`: click a worker's agent row) takes the float's rules for typing: every key
+reaches the worker, `Ctrl+G` and the popup chords such as `Alt+F` included, and plain `PageUp` and `PageDown` page
+its scrollback. It differs from a float in three ways:
+
+- The `previous_tab`/`next_tab`/`previous_agent`/`next_agent` chords still navigate: `next_agent` walks through the
+  workers and on to the next agent, and a tab chord closes the popup with its tab.
+- The prefix is a two-key chord of its own: prefix then `Esc` closes the popup (the worker keeps running), prefix then
+  `Enter` keeps it as a tab, prefix then prefix sends one literal prefix to the worker, and any other key after the
+  prefix is dropped. No prefix binding of hc-tui acts from inside the popup, and a prefix already armed in the pane
+  underneath is dropped when the popup opens.
+- With the keyboard locked, only the exit remains: prefix then `Esc` still closes the popup, and prefix then any other
+  key sends the prefix and that key to the worker. Navigation chords and `Enter` no longer act.
+
+A click outside the popup, or on `×`, closes it; `↗ keep` keeps it as a tab.
+
 Both persistent floats and one-shot popups draw a unified modal frame: the background dims, a 1-cell outer gutter and rounded `╭╮╰╯` border lift the popup onto an elevated surface, and a 1-cell drop shadow sits right and below (terminal-default VT cells keep their translucency). Persistent floats add a rich title carrying the binding, owning tab, and program, with the hide chord hinted on the right — the hint drops when the frame is too narrow to show it clear of the title. The border is the theme accent while focused and turns muted while the keyboard is locked (`Ctrl+G`). You can toggle backdrop dimming and shadows in `~/.config/herdr/config.toml` via `[ui] popup_backdrop` (`"dim"` or `"none"`) and `popup_shadow` (`true` or `false`).
 
 ```text

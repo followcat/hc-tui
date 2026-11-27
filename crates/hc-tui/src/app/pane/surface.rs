@@ -126,7 +126,7 @@ impl Pane {
     }
 
     /// The active spec, whatever state it's in.
-    pub(super) fn spec(&self) -> Option<&Spec> {
+    pub(crate) fn spec(&self) -> Option<&Spec> {
         match &self.state {
             State::Opening { spec, .. } => Some(spec),
             State::Live(live) => Some(&live.spec),

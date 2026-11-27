@@ -93,6 +93,12 @@ are already localized and must be matched verbatim; a bare parent is not
 automatically prefixed with the worker's machine. The reference sidebar has
 no separate parent-note field, so workers use its ordinary agent rows.
 
+With `[ui] nest_worker_terminals = true`, a worker with no placement of its
+own gets no tab: its row nests under its parent's row in the grouped panel,
+and clicking it opens the worker in a popup over the current tab (see
+`keys.md`). A worker whose parent is gone, closed, a popup or on another
+machine falls back to its folder space instead.
+
 ## Spaces, tabs and titles
 
 M2 groups terminals by `herdr.space`, falling back to endpoint plus full cwd.

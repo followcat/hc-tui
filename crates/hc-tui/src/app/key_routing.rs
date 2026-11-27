@@ -45,8 +45,7 @@ impl App {
                 self.selection_highlight_clear_deadline = None;
                 self.sched.mark_dirty(Instant::now());
             }
-            self.reset_displayed_scroll();
-            self.pane.input_encoded(text.into_bytes());
+            self.send_committed_text(text.into_bytes());
             return;
         }
         let mut key = self.host_erase_key(key);
@@ -126,7 +125,7 @@ impl App {
         }
     }
 
-    fn route_key_press(&mut self, key: &TerminalKey, width: u16) -> Option<u64> {
+    pub(super) fn route_key_press(&mut self, key: &TerminalKey, width: u16) -> Option<u64> {
         // Reprocessed repeats enter the same binding dispatcher. Only the key
         // sent to the program retains Repeat; routing itself tests the chord.
         let press = key.clone().with_action(Action::Press);
@@ -167,6 +166,7 @@ impl App {
                 return None;
             }
             self.clear_popup_selection();
+            self.worker_popup_key(key, &press, &popup_combo, width)?;
             let intercepted = self
                 .popup
                 .as_ref()

@@ -94,7 +94,7 @@ difference.
 | Repository-root fallback label | C3 `checkout.repo_root` and `repository.auto_label` replace launch-cwd inference; explicit herdr-app/space/tab membership retains precedence. A plain-directory observation is distinct from an unsupported absent repository object. Validated against the pinned `.8` fixtures. |
 | Workspace/agent tokens | No documented mapping for the source configurable token/context-usage values. Leave token collections empty. Unknown protocol extensions are retained without guessing their meaning. |
 | Agent state labels | No documented equivalent for the source server's state-label collection. Leave it empty; core parent addresses or record sources are not state labels. |
-| Worker relationship | Core `parent` is available and remains verbatim. The reference sidebar has no parent-note field; a worker uses an ordinary agent row with its own identity. Unknown parents do not hide it. |
+| Worker relationship | Core `parent` is available and remains verbatim. The reference sidebar has no parent-note field; a worker uses an ordinary agent row with its own identity. Unknown parents do not hide it. The opt-in `ui.nest_worker_terminals` deviates: see the worker popup under Slice 5. |
 | Endpoint state | Local connection/subscription state and remote `machine.list` states drive the reference endpoint enum. Offline snapshots remain listed. RPC-only loss retains streaming terminal reports and marks stale machine information; subscription loss makes the retained inventory stale. Use the source stale/dimming presentation. |
 | Size-owner identity | Active/observe role, size and focus facts are available, but the tested protocol does not name another size owner. Preserve role and authoritative sizes, and omit an invented owner name. Visible ownership notices and explicit take-control behavior still require validation. |
 | Hostname | Use optional `hello.core.hostname` only with `os_hostname`, and connected/fresh `MachineView.hostname` for remote endpoints. Both title and tab status use the fact; missing/unconfirmed/offline facts produce no hostname text. Never substitute configured `core.name` or a relay alias, or run discovery commands. Validated against the pinned `.8` fixtures. |
@@ -804,6 +804,26 @@ Everything else on the compared surfaces still diffs normally.
   never renumbers agents: the agent order still lists every one. The flat
   and priority panels have no headers and ignore folds. Whether the Herdr
   app folds or persists its agent list is not verified.
+- **Workers with no tab.** Opt-in (`[ui] nest_worker_terminals = true`),
+  hc-tui deliberately diverges from the reference sidebar's flat rows. A
+  worker — a terminal started from another terminal — with no
+  `herdr.space` placement of its own gets no tab and no pane: its agent
+  row nests under its parent's row (` └ `, shown as the worker's own name)
+  in the grouped panel, and a worker that is no reporter still gets a row,
+  so every worker stays reachable. The row carries the parent's
+  workspace and tab, so its status also lights the parent's tab and space
+  dot. Clicking the row (or reaching it with previous/next agent or the
+  mobile switcher) opens the worker in an interactive popup over the
+  current tab, without changing focus; `↗ keep` in its title bar adopts it
+  as a tab (refused for a worker of another machine, since keeping labels
+  it with the focused machine's space) — a new tab of the focused space
+  for an app space or one already promoted, and a new space of its own when
+  the focused space is an unlabelled folder space, since keeping mints a
+  fresh space id there — `×` or a click outside closes it,
+  and prefix then `Esc`/`Enter` do the same from the keyboard. A finished
+  worker with no placement is hidden. A worker whose parent is gone,
+  closed, a popup or on another machine falls back to its folder space as
+  a tab, as without the setting.
 - **Persistent float default for a shell popup.** Deliberate: an hc-tui
   `[[keys.command]]` with `type = "popup"` whose command is a bare
   interactive shell is the tab's persistent float unless the entry says
@@ -817,7 +837,11 @@ Everything else on the compared surfaces still diffs normally.
   `previous_agent`/`next_agent` bindings and Ctrl+G, and a locked
   keyboard sends its keys to the popup. Plain page keys page the popup's
   own scrollback under the pane rule. The reference routes Ctrl+G and the
-  lock before the popup and never pages a popup's scrollback.
+  lock before the popup and never pages a popup's scrollback. A worker
+  popup (`nest_worker_terminals`) takes the lock and paging rules too, but
+  keeps the four navigation bindings and runs its own prefix chord, and its
+  popup-command chords reach the worker. Under the lock only the chord's
+  exit remains, so the popup can always be closed: prefix then Esc.
 - **Parity harness known differences.** The harness excuses exactly three
   things, each by position and content and recorded per checkpoint under
   `known_differences` with the reason: the running version badge (one
@@ -894,6 +918,24 @@ Everything else on the compared surfaces still diffs normally.
   `terminal.keep` exactly like `terminal.keep` semantics describe; close
   detaches without writes. Keep is refused with a notice when the peeked
   terminal is on another machine than the focused one.
+- **Worker popup.** With `nest_worker_terminals`, a worker's row opens it
+  in the same 80%×80% frame, but as an `Active` attach: keys type into
+  the worker and it takes the host cursor, and its size claim resizes the
+  worker to the popup. Closing — `×`, a click outside, prefix then `Esc`,
+  a tab change, the worker finishing or leaving — only detaches: nothing
+  is killed or written, and the worker falls back to the core's 200×120
+  headless size. One popup shows at a time; opening it parks a persistent
+  float and closes a command popup. While it is open the worker counts
+  as viewed: its completion is acknowledged once the popup has painted,
+  and `herdr.seen` is written as for a visible pane.
+- **Popup row clicks.** Opt-in under `[ui] nest_worker_terminals = true`;
+  with it off, every popup swallows an outside press on an agent row or
+  space header, as the reference does (a peek still closes on it). With
+  it on, a left press outside any open popup that lands on an agent row
+  or an agent space header dismisses the popup (a float parks, a command
+  popup closes, a worker popup or peek detaches) and acts on that row or
+  header (a header folds or unfolds its space) in the same press. Other
+  outside presses keep their behavior.
 - **Command-pane unwind.** The reference registers `pane`/`popup`
   command terminals as `overlay_panes` and removes the split, restores
   the previous focus and clears zoom when the command exits. hc-tui
