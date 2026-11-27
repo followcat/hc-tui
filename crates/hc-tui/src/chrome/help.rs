@@ -34,15 +34,11 @@ pub(crate) struct CursorState {
     pub y: u16,
     pub visible: bool,
 }
-/// Keys longer than this (e.g. the "h / j / k / l / left / right" list) do not
-/// widen the key column; otherwise one long key pushes every description off
-/// its row and the unfiltered view wraps into stacked key/description lines.
-const MAX_KEY_COLUMN: usize = 24;
-
 fn help_lines(
     keybinds: &LiveKeybindConfig,
     query: &str,
     palette: &Palette,
+    text_width: usize,
 ) -> Vec<(usize, ratatui::text::Line<'static>)> {
     use ratatui::text::{Line, Span};
 
@@ -50,10 +46,20 @@ fn help_lines(
         crate::keybind_help::keybind_help_groups(&keybinds.keybinds, &keybinds.prefix),
         query,
     );
+    // The key column is as wide as the widest key label. When that would push
+    // a description past the text width, labels too long to share a row with
+    // the longest description stay out of the width. Their own rows wrap, and
+    // the other rows keep key and description together.
+    let longest_description = groups
+        .iter()
+        .flat_map(|(_, entries)| entries.iter().map(|(_, label)| label.chars().count()))
+        .max()
+        .unwrap_or(0);
+    let widest_fitting_key = text_width.saturating_sub(2 + longest_description);
     let key_width = groups
         .iter()
         .flat_map(|(_, entries)| entries.iter().map(|(key, _)| key.chars().count()))
-        .filter(|width| *width <= MAX_KEY_COLUMN)
+        .filter(|width| *width <= widest_fitting_key)
         .max()
         .unwrap_or(8);
     let bg = overlay_bg(palette);
@@ -181,7 +187,8 @@ pub(crate) fn render_help_overlay_with_shadow(
     };
 
     let body = Rect::new(i.x, i.y + 3, i.width, i.height.saturating_sub(5));
-    let lines = help_lines(k, &h.query, p);
+    // One column stays free for the scrollbar.
+    let lines = help_lines(k, &h.query, p, usize::from(body.width.saturating_sub(1)));
     let viewport_rows = usize::from(body.height.max(1));
     let wrapped_rows = |width: u16| {
         let width = usize::from(width.max(1));
@@ -284,6 +291,28 @@ mod tests {
                     && row.contains("ctrl+g")),
             "{}",
             rows.join("\n")
+        );
+    }
+
+    #[test]
+    fn default_overlay_keeps_the_widest_key_column() {
+        let rows = render_text("");
+        let key = "h / j / k / l / left / right";
+        assert_eq!(key.chars().count(), 28);
+        let row = rows
+            .iter()
+            .find(|row| row.contains(key) && row.contains("move focus"))
+            .unwrap_or_else(|| panic!("{}", rows.join("\n")));
+        let start = row.find(key).unwrap();
+        // One space after the 28-column key, then the description.
+        assert_eq!(&row[start + key.len()..][..12], " move focus ");
+        let other = rows
+            .iter()
+            .find(|row| row.contains("lock / unlock keyboard shortcuts"))
+            .unwrap();
+        assert_eq!(
+            other.find("lock / unlock").unwrap(),
+            row.find("move focus").unwrap()
         );
     }
 }

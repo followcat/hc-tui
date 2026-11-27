@@ -13,6 +13,11 @@ All notable changes to hc-tui are documented here. The format follows
   are remembered per machine across restarts, and moving to an agent of a
   folded space unfolds it.
 
+### Fixed
+
+- The keybinds overlay keeps each key and its description on one row when one
+  action has many keys.
+
 ## 0.1.22 — 2026-11-27
 
 ### Changed
