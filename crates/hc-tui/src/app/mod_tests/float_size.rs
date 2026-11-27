@@ -106,7 +106,7 @@ async fn adopted_float_with_80_percent_binding_resolves_frame_and_terminal_size(
         popup.pane.allocated_size(),
         (expected.terminal_cols, expected.terminal_rows)
     );
-    assert_eq!(drawn_frame_rect(&mut app), expected.outer);
+    assert_eq!(drawn_frame_rect(&mut app), expected.frame);
     let hit = app.hit_map.popup.as_ref().expect("popup hit rect");
     assert!(hit.inner_rect.width >= expected.terminal_cols);
     assert_eq!(hit.inner_rect.height, expected.terminal_rows);
@@ -152,7 +152,7 @@ async fn binding_size_change_applies_on_next_show() {
         app.popup.as_ref().unwrap().pane.allocated_size(),
         (geom_40.terminal_cols, geom_40.terminal_rows)
     );
-    assert_eq!(drawn_frame_rect(&mut app), geom_40.outer);
+    assert_eq!(drawn_frame_rect(&mut app), geom_40.frame);
 
     // Hide, update the binding size, then show again.
     press_alt_f(&mut app);
@@ -167,7 +167,7 @@ async fn binding_size_change_applies_on_next_show() {
         popup.pane.allocated_size(),
         (geom_80.terminal_cols, geom_80.terminal_rows)
     );
-    assert_eq!(drawn_frame_rect(&mut app), geom_80.outer);
+    assert_eq!(drawn_frame_rect(&mut app), geom_80.frame);
 
     // A live config reload also updates an already-shown float immediately.
     let dir = TestDir::new("hctui-float-size-reload");
@@ -193,7 +193,7 @@ async fn binding_size_change_applies_on_next_show() {
         popup.pane.allocated_size(),
         (geom_reloaded.terminal_cols, geom_reloaded.terminal_rows)
     );
-    assert_eq!(drawn_frame_rect(&mut app), geom_reloaded.outer);
+    assert_eq!(drawn_frame_rect(&mut app), geom_reloaded.frame);
 }
 
 #[tokio::test]
@@ -236,7 +236,7 @@ async fn removed_binding_falls_back_to_default() {
         popup.pane.allocated_size(),
         (default_geom.terminal_cols, default_geom.terminal_rows)
     );
-    assert_eq!(drawn_frame_rect(&mut app), default_geom.outer);
+    assert_eq!(drawn_frame_rect(&mut app), default_geom.frame);
 
     // Removing width/height from an existing binding also falls back to default,
     // whereas removing the binding entirely keeps a previously stored explicit size.

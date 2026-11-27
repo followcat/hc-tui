@@ -353,5 +353,80 @@ class ReferenceReadinessSafety(unittest.TestCase):
         owner.ui.read.assert_called_once_with(.03)
 
 
+class PopupDepthParity(unittest.TestCase):
+    def _frame(self, rows_text, bg=None, overrides=None):
+        bg = bg or [30, 30, 46]
+        overrides = overrides or {}
+        cells = []
+        for y, row in enumerate(rows_text):
+            row_cells = []
+            for x, ch in enumerate(row):
+                cell = {
+                    'text': ch,
+                    'wide': 'Narrow',
+                    'resolved_fg': [205, 214, 244],
+                    'resolved_bg': list(bg),
+                    'dim': False,
+                    'bold': False,
+                }
+                cell.update(overrides.get((y, x), {}))
+                row_cells.append(cell)
+            cells.append({'y': y, 'cells': row_cells})
+        return {'cells': cells}
+
+    def test_excuses_overlay_gutter_shadow_wide_edge_and_backdrop_only(self):
+        from checks import (POPUP_DEPTH_BACKDROP_REASON, POPUP_DEPTH_FRAME_REASON,
+                            POPUP_DEPTH_SHADOW_REASON, POPUP_WIDE_STRADDLE_REASON,
+                            known_differences)
+        ov_bg = [49, 50, 68]
+        dim_bg = [18, 18, 28]
+        sh_bg = [10, 10, 16]
+        ref = self._frame(
+            [
+                '............',
+                '............',
+                '.中 ┌────┐...',
+                '...│ hi │...',
+                '...└────┘...',
+                '............',
+                '............',
+            ],
+            overrides={(2, 1): {'wide': 'Head'}, (2, 2): {'text': '', 'wide': 'SpacerTail'}},
+        )
+        cand_rows = [
+            '............',
+            '..        ..',
+            '.  ╭────╮ ..',
+            '.. │ hi │ ..',
+            '.. ╰────╯ ..',
+            '..        ..',
+            '............',
+        ]
+        ov = {}
+        for y in range(7):
+            for x in range(12):
+                if 1 <= y <= 5 and 2 <= x <= 9:
+                    ov[(y, x)] = {'resolved_bg': ov_bg}
+                elif (2 <= y <= 6 and x == 10) or (y == 6 and 3 <= x <= 10):
+                    ov[(y, x)] = {'resolved_bg': sh_bg}
+                else:
+                    ov[(y, x)] = {'resolved_bg': dim_bg}
+        cand = self._frame(cand_rows, overrides=ov)
+        diff = known_differences(ref, cand)
+        self.assertIn(POPUP_DEPTH_FRAME_REASON, diff)
+        self.assertIn(POPUP_DEPTH_SHADOW_REASON, diff)
+        self.assertIn(POPUP_DEPTH_BACKDROP_REASON, diff)
+        self.assertIn(POPUP_WIDE_STRADDLE_REASON, diff)
+        self.assertIn((2, 1), diff[POPUP_WIDE_STRADDLE_REASON])
+        # Unrelated text mutation outside popup stays unexcused.
+        cand['cells'][0]['cells'][0]['text'] = 'X'
+        diff2 = known_differences(ref, cand)
+        self.assertNotIn((0, 0), diff2.get(POPUP_DEPTH_BACKDROP_REASON, []))
+        # Non-overlay frame never triggers overlay exemptions.
+        plain_ref = self._frame(['abcd', 'efgh'])
+        plain_cand = self._frame(['abcd', 'efgh'], bg=dim_bg)
+        self.assertEqual(known_differences(plain_ref, plain_cand), {})
+
+
 if __name__ == '__main__':
     unittest.main()

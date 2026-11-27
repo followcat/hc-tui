@@ -9,8 +9,10 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
 
-use super::dialogs::{contrast, panel};
 use super::palette::Palette;
+use super::popup_frame::{
+    PopupChrome, contrast, overlay_bg, paint_frame_clipped, wrap_border_in_host,
+};
 use super::render::{display_width, put_text};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -192,10 +194,11 @@ pub(crate) struct ContextMenuRender {
     pub rows: Vec<(Rect, usize)>,
 }
 
-pub(crate) fn render_context_menu(
+pub(crate) fn render_context_menu_with_shadow(
     buffer: &mut Buffer,
     menu: &ContextMenu,
     palette: &Palette,
+    shadow: bool,
 ) -> Option<ContextMenuRender> {
     let items = menu.items();
     let screen = buffer.area;
@@ -220,7 +223,17 @@ pub(crate) fn render_context_menu(
             .saturating_add(screen.height.saturating_sub(height)),
     );
     let rect = Rect::new(x, y, width, height);
-    let inner = panel(buffer, rect, palette.accent, palette.panel_bg)?;
+    let geom = paint_frame_clipped(
+        buffer,
+        wrap_border_in_host(screen, rect, PopupChrome::Menu),
+        screen,
+        palette.accent,
+        PopupChrome::Menu,
+        palette,
+        shadow,
+    )?;
+    let inner = geom.inner;
+    let bg = overlay_bg(palette);
     let mut rows = Vec::new();
     for (index, item) in items.iter().enumerate() {
         let row_y = inner.y.saturating_add(index as u16);
@@ -235,7 +248,7 @@ pub(crate) fn render_context_menu(
                 .bg(palette.accent)
                 .add_modifier(Modifier::BOLD)
         } else {
-            Style::default().fg(palette.text).bg(palette.panel_bg)
+            Style::default().fg(palette.text).bg(bg)
         };
         buffer.set_style(row, style);
         put_text(buffer, row.x, row.y, row.width, item.label, style);
