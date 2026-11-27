@@ -31,7 +31,10 @@ pub(crate) enum PanelRow {
     /// A space header; `gap` puts a blank line above every group but the first.
     Space {
         label: String,
+        workspace_id: String,
         gap: bool,
+        /// The space's agents are folded away.
+        collapsed: bool,
     },
     Agent(AgentRow),
 }
@@ -47,22 +50,23 @@ impl PanelRow {
 
 /// The panel's entries. With `agent_panel_space_headers` on, sorted by
 /// space and not filtered to a view, a header with the space's name opens
-/// each run of that space's agents. Otherwise the list stays flat: the
-/// reference's space order has no headers, and by priority one space's
-/// agents are spread.
+/// each run of that space's agents, and a space in `folded` keeps only
+/// its header. Otherwise the list stays flat: the reference's space order
+/// has no headers, and by priority one space's agents are spread.
 pub(crate) fn panel_rows(
     snapshot: &ClientShellSnapshot,
     config: &super::ClientShellConfig,
+    folded: &std::collections::HashSet<String>,
 ) -> Vec<PanelRow> {
-    let grouped = config.agent_panel_space_headers
-        && config.agent_panel_sort == crate::config::AgentPanelSortConfig::Spaces
-        && snapshot.agent_view_label.is_none();
+    let grouped =
+        super::agent_folds::agent_panel_grouped(config, snapshot.agent_view_label.as_deref());
     let mut rows = Vec::new();
     let mut current: Option<&str> = None;
     for pane_id in ordered_agent_pane_ids(snapshot, config.agent_panel_sort) {
         let Some(row) = agent_row(snapshot, &pane_id, config, None) else {
             continue;
         };
+        let mut hidden = false;
         if grouped {
             let workspace = snapshot
                 .agents
@@ -74,44 +78,55 @@ pub(crate) fn panel_rows(
                         .iter()
                         .find(|workspace| workspace.workspace_id == agent.workspace_id)
                 });
-            if let Some(workspace) = workspace
-                && current != Some(workspace.workspace_id.as_str())
-            {
-                rows.push(PanelRow::Space {
-                    label: workspace.label.clone(),
-                    gap: current.is_some(),
-                });
-                current = Some(workspace.workspace_id.as_str());
+            if let Some(workspace) = workspace {
+                let collapsed = folded.contains(&workspace.workspace_id);
+                if current != Some(workspace.workspace_id.as_str()) {
+                    rows.push(PanelRow::Space {
+                        label: workspace.label.clone(),
+                        workspace_id: workspace.workspace_id.clone(),
+                        gap: current.is_some(),
+                        collapsed,
+                    });
+                    current = Some(workspace.workspace_id.as_str());
+                }
+                hidden = collapsed;
             }
         }
-        rows.push(PanelRow::Agent(row));
+        if !hidden {
+            rows.push(PanelRow::Agent(row));
+        }
     }
     rows
 }
 
-/// A space header: the space's name, dim, on the panel's last line of the
-/// entry (the first line is the blank gap when there is one).
+/// A space header: a fold chevron and the space's name, dim, on the
+/// panel's last line of the entry (the first line is the blank gap when
+/// there is one). Returns the label line's rect, or `None` when the entry
+/// was cut off before it.
 pub(super) fn render_space_header(
     buffer: &mut Buffer,
     rect: Rect,
-    label: &str,
+    (label, collapsed): (&str, bool),
     gap: bool,
     config: &super::ClientShellConfig,
-) {
+) -> Option<Rect> {
     let y = rect.y + u16::from(gap);
     if y >= rect.bottom() {
-        return;
+        return None;
     }
+    let style = Style::default()
+        .fg(config.palette.overlay0)
+        .add_modifier(Modifier::DIM);
+    let chevron = if collapsed { '▸' } else { '▾' };
     put_text(
         buffer,
         rect.x,
         y,
         rect.width,
-        &format!(" {label}"),
-        Style::default()
-            .fg(config.palette.overlay0)
-            .add_modifier(Modifier::DIM),
+        &format!(" {chevron} {label}"),
+        style,
     );
+    Some(Rect::new(rect.x, y, rect.width, 1))
 }
 
 pub(crate) fn agent_row(

@@ -791,6 +791,19 @@ Everything else on the compared surfaces still diffs normally.
   machines added (`hc machine add`), each machine's spaces get their own
   headers without naming the machine, so a space of the same name on two
   machines heads two groups.
+- **Agent-panel space folds.** hc-tui extends the grouped panel: each
+  header shows `▾` or `▸`, a left click on its label line (never the blank
+  gap above it) folds the space's agents away or brings them back, and the
+  fold is remembered per machine across restarts, like the sidebar's
+  workspace group collapses (`collapsed_agent_spaces`, plus one list per
+  remote machine, in the same preferences file; older files load with
+  nothing folded). Agent navigation — previous/next/indexed agent, the
+  mobile switcher and the multi-machine walk — onto an agent of a folded
+  space unfolds it first, only while the panel shows space headers (with
+  them off, or sorted by priority, a saved fold is left as it is). Folding
+  never renumbers agents: the agent order still lists every one. The flat
+  and priority panels have no headers and ignore folds. Whether the Herdr
+  app folds or persists its agent list is not verified.
 - **Persistent float default for a shell popup.** Deliberate: an hc-tui
   `[[keys.command]]` with `type = "popup"` whose command is a bare
   interactive shell is the tab's persistent float unless the entry says

@@ -100,6 +100,8 @@ pub(crate) struct ShellHitMap {
     pub global_launcher: Rect,
     /// Row hit areas of the open context menu, filled during draw.
     pub context_menu_rows: Vec<(Rect, usize)>,
+    /// Agent space header hits, kept apart so this struct stays small.
+    pub extra: super::extra_hits::ExtraHits,
 }
 
 /// Diagnostics shown on endpoint rows. hc-tui has no saved-endpoint auth
@@ -129,6 +131,8 @@ pub(crate) struct ShellRenderState<'a> {
     pub collapsed_endpoints: &'a HashSet<ClientEndpointId>,
     pub collapsed_groups: &'a HashSet<String>,
     pub remote_collapsed_groups: &'a HashMap<ClientEndpointId, HashSet<String>>,
+    /// Folded space groups of the agents panel.
+    pub agent_folds: super::agent_folds::AgentFolds<'a>,
     pub workspace_scroll: &'a mut usize,
     pub agent_scroll: &'a mut usize,
     pub tab_scroll: &'a mut usize,

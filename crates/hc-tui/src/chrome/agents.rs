@@ -44,11 +44,14 @@ pub(crate) fn ordered_agent_pane_ids(
         .collect()
 }
 
+// One argument over the lint's limit: the fold set joins the source's list.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn render_agent_panel(
     buffer: &mut Buffer,
     area: Rect,
     snapshot: &ClientShellSnapshot,
     config: &super::ClientShellConfig,
+    folded: &std::collections::HashSet<String>,
     agent_scroll: &mut usize,
     reveal_focused_agent: &mut bool,
     hits: &mut ShellHitMap,
@@ -63,7 +66,7 @@ pub(crate) fn render_agent_panel(
         return;
     }
 
-    let rows = panel_rows(snapshot, config);
+    let rows = panel_rows(snapshot, config, folded);
     let target = std::mem::take(reveal_focused_agent)
         .then(|| {
             rows.iter()
@@ -84,8 +87,19 @@ pub(crate) fn render_agent_panel(
         target,
         PanelRow::lines,
         |buffer, rect, row, hits| match row {
-            PanelRow::Space { label, gap } => {
-                render_space_header(buffer, rect, label, *gap, config);
+            PanelRow::Space {
+                label,
+                workspace_id,
+                gap,
+                collapsed,
+            } => {
+                if let Some(line) =
+                    render_space_header(buffer, rect, (label, *collapsed), *gap, config)
+                {
+                    hits.extra
+                        .agent_space_headers
+                        .push((line, workspace_id.clone()));
+                }
             }
             PanelRow::Agent(row) => {
                 hits.agents.push((rect, row.pane_id.clone()));

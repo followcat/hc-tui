@@ -1,4 +1,7 @@
 //! Read-only application tests and shared fixtures.
+mod agent_fixtures;
+mod agent_fold_swallow;
+mod agent_folds;
 mod cases_1;
 mod cases_2;
 mod command_env;
