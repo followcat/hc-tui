@@ -575,21 +575,21 @@ impl App {
         self.popup.is_some()
     }
 
-    /// Peek floats like herdr-app's 0.8 dialog; a press outside closes it.
-    fn peek_outer(&self) -> Option<Rect> {
+    /// Peek floats centered like herdr-app's 0.8 dialog.
+    fn peek_geometry(&self) -> Option<crate::popup_size::PopupResolvedGeometry> {
         self.peek.as_ref()?;
         resolve_popup_geometry(
             Some(PopupSize::Percent(80)),
             Some(PopupSize::Percent(80)),
             self.frame_area(),
         )
-        .map(|g| g.outer)
     }
 
     pub(super) fn peek_mouse(&mut self, mouse: &super::input::MouseInput) -> bool {
-        let Some(outer) = self.peek_outer() else {
+        let Some(geom) = self.peek_geometry() else {
             return false;
         };
+        let outer = geom.outer;
         let inside = mouse.col >= outer.x
             && mouse.col < outer.x + outer.width
             && mouse.row >= outer.y
@@ -608,60 +608,88 @@ impl App {
     /// Draw the peek overlay, then the popup over it. The popup owns the
     /// host cursor while open; a peek never gets one (observe-only).
     pub(super) fn draw_popups(&mut self, buf: &mut ratatui::buffer::Buffer, now: Instant) {
+        use crate::chrome::popup_frame::{
+            PopupChrome, PopupGeometry, dim_backdrop, dim_backdrop_in, overlay_bg, paint_frame,
+            paint_frame_clipped,
+        };
         use ratatui::style::{Modifier, Style};
-        use ratatui::widgets::{Block, Borders, Clear, Paragraph, Widget};
+        use ratatui::widgets::{Block, BorderType, Borders, Paragraph, Widget};
         self.hit_map.popup = None;
         if self.popup.is_none() && self.peek.is_none() {
             return;
         }
         // The source composes overlays by rebuilding the wire frame as
         // ratatui cells (wire.rs u16_to_modifier drops extended underline
-        // bits); neither overlay dims the background.
+        // bits).
         for cell in &mut buf.content {
             cell.modifier = Modifier::from_bits_truncate(cell.modifier.bits() & !0xf000);
         }
-        let palette = &self.shell.palette;
-        if let Some(outer) = self.peek_outer()
-            && let Some(peek) = self.peek.as_mut()
-        {
-            Clear.render(outer, buf);
+        let backdrop = self.shell.popup_backdrop;
+        let shadow = self.shell.popup_shadow;
+        let mut dimmed_full = false;
+        if let Some(g) = self.peek_geometry() {
+            dim_backdrop(buf, &self.shell.palette, backdrop, None);
+            dimmed_full = true;
             let title = self
-                .view
-                .inventory
-                .get(&peek.terminal)
-                .and_then(|t| t.labels.get("herdr.title").cloned())
-                .filter(|t| !t.is_empty())
-                .unwrap_or_else(|| peek.terminal.clone());
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(palette.accent).bg(palette.panel_bg))
-                .style(Style::default().bg(palette.panel_bg))
-                .title(format!(
-                    " peek {title} — enter keeps it as a tab, esc closes "
-                ));
-            let inner = block.inner(outer);
-            block.render(outer, buf);
-            let header = Rect::new(inner.x, inner.y, inner.width, 1);
-            let surface = Rect::new(
-                inner.x,
-                inner.y + 1,
-                inner.width,
-                inner.height.saturating_sub(1),
-            );
-            Paragraph::new(format!(" {}", title))
-                .style(
-                    Style::default()
-                        .fg(palette.text)
-                        .bg(palette.panel_bg)
-                        .add_modifier(Modifier::BOLD),
-                )
-                .render(header, buf);
-            Clear.render(surface, buf);
-            super::draw::draw_terminal(&mut peek.pane, surface, buf, now, true);
-            // The peek surface is composed into the rebuilt ratatui
-            // frame: its extended underline bits drop too.
-            for cell in &mut buf.content {
-                cell.modifier = Modifier::from_bits_truncate(cell.modifier.bits() & !0xf000);
+                .peek
+                .as_ref()
+                .and_then(|peek| {
+                    self.view
+                        .inventory
+                        .get(&peek.terminal)
+                        .and_then(|t| t.labels.get("herdr.title").cloned())
+                        .filter(|t| !t.is_empty())
+                        .or_else(|| Some(peek.terminal.clone()))
+                })
+                .unwrap_or_default();
+            if let Some(peek) = self.peek.as_mut() {
+                let palette = &self.shell.palette;
+                let frame_geom = PopupGeometry {
+                    outer: g.outer,
+                    border: g.frame,
+                    inner: g.inner,
+                };
+                paint_frame(
+                    buf,
+                    frame_geom,
+                    palette.accent,
+                    PopupChrome::Terminal,
+                    palette,
+                    shadow,
+                );
+                let ov_bg = overlay_bg(palette);
+                let block = Block::default()
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded)
+                    .border_style(Style::default().fg(palette.accent).bg(ov_bg))
+                    .style(Style::default().bg(ov_bg))
+                    .title(format!(
+                        " peek {title} — enter keeps it as a tab, esc closes "
+                    ));
+                let inner = block.inner(g.frame);
+                block.render(g.frame, buf);
+                let header = Rect::new(inner.x, inner.y, inner.width, 1);
+                let surface = Rect::new(
+                    inner.x,
+                    inner.y + 1,
+                    inner.width,
+                    inner.height.saturating_sub(1),
+                );
+                Paragraph::new(format!(" {}", title))
+                    .style(
+                        Style::default()
+                            .fg(palette.text)
+                            .bg(ov_bg)
+                            .add_modifier(Modifier::BOLD),
+                    )
+                    .render(header, buf);
+                crate::chrome::wide::clear_overlay(buf, surface);
+                super::draw::draw_terminal(&mut peek.pane, surface, buf, now, true);
+                // The peek surface is composed into the rebuilt ratatui
+                // frame: its extended underline bits drop too.
+                for cell in &mut buf.content {
+                    cell.modifier = Modifier::from_bits_truncate(cell.modifier.bits() & !0xf000);
+                }
             }
         }
         let frame_area = self.frame_area();
@@ -672,18 +700,32 @@ impl App {
             return;
         };
         let persistent = self.popup.as_ref().is_some_and(|p| p.persistent);
-        if persistent {
-            // The persistent float dresses the frame its size deserves:
-            // dimmed backdrop, drop shadow, then the rounded block.
-            self.dim_float_backdrop(buf);
-            self.draw_float_shadow(buf, geometry.outer);
+        if !dimmed_full {
+            if persistent {
+                dim_backdrop_in(buf, frame_area, &self.shell.palette, backdrop, None);
+            } else {
+                dim_backdrop(buf, &self.shell.palette, backdrop, None);
+            }
         }
-        Clear.render(geometry.outer, buf);
+        let border_fg = self.float_border_color(persistent);
+        let frame_geom = PopupGeometry {
+            outer: geometry.outer,
+            border: geometry.frame,
+            inner: geometry.inner,
+        };
+        paint_frame_clipped(
+            buf,
+            frame_geom,
+            frame_area,
+            border_fg,
+            PopupChrome::Terminal,
+            &self.shell.palette,
+            shadow,
+        );
+        let ov_bg = overlay_bg(&self.shell.palette);
         let block = if persistent {
-            self.float_block(geometry.outer)
+            self.float_block(geometry.frame)
         } else {
-            // The ephemeral reference title is the terminal's manual
-            // label or "popup" — plain square frame, no dressing.
             let title = self
                 .popup
                 .as_ref()
@@ -693,15 +735,16 @@ impl App {
                 .unwrap_or_else(|| "popup".to_owned());
             Block::default()
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(palette.accent).bg(palette.panel_bg))
-                .style(Style::default().bg(palette.panel_bg))
+                .border_type(BorderType::Rounded)
+                .border_style(Style::default().fg(border_fg).bg(ov_bg))
+                .style(Style::default().bg(ov_bg))
                 .title(title)
         };
         let Some(popup) = self.popup.as_mut() else {
             return;
         };
-        let inner = block.inner(geometry.outer);
-        block.render(geometry.outer, buf);
+        let inner = block.inner(geometry.frame);
+        block.render(geometry.frame, buf);
         // The attach's cells are `terminal_cols` wide — one column
         // narrower than `inner` when the popup is wide, like the
         // reference's `terminal_width` asymmetry.
@@ -711,11 +754,10 @@ impl App {
             inner.width.min(geometry.terminal_cols),
             inner.height.min(geometry.terminal_rows),
         );
-        // The block fills the interior with `panel_bg`; the reference
-        // leaves the covered cells on the terminal default background
-        // (`blit_pane_surface` only paints terminal cells), so reset
-        // exactly the surface area and keep the panel fill outside it.
-        Clear.render(surface, buf);
+        // The block fills the interior with `overlay_bg`; reset
+        // the terminal surface area so VT cells keep their default
+        // background transparency (`blit_pane_surface` only paints terminal cells).
+        crate::chrome::wide::clear_overlay(buf, surface);
         let wish = super::draw::draw_terminal(&mut popup.pane, surface, buf, now, false);
         // The popup's VT cells went through the same ratatui rebuild in
         // the reference — extended underline bits collapse to single.
@@ -787,39 +829,21 @@ impl App {
         true
     }
 
-    /// `↗ keep`: adopt the peeked terminal into a fresh tab of the focused
-    /// space — the layout CAS plus `terminal.keep`, then dismiss the peek.
+    /// `↗ keep` on a peek: close it first, then keep its terminal.
     fn keep_peek(&mut self) {
         let Some(peek) = self.peek.take() else {
             return;
         };
+        let mut pane = peek.pane;
+        pane.want(None);
         let created_ms = self
             .view
             .inventory
             .get(&peek.terminal)
             .map(|t| t.created_ms)
             .unwrap_or(peek.created_ms);
-        let terminal = peek.terminal.clone();
-        let mut pane = peek.pane;
-        pane.want(None);
-        match self.creation(None, false) {
-            Ok(creation) => {
-                let labels = creation
-                    .params
-                    .labels
-                    .iter()
-                    .filter(|(k, _)| k.as_str() != "herdr.seen")
-                    .map(|(k, v)| (k.clone(), v.clone()))
-                    .collect();
-                self.submit_action(Action::PeekKeep {
-                    edit: creation.edit,
-                    terminal,
-                    created_ms,
-                    labels,
-                    order: creation.order,
-                });
-            }
-            Err(error) => self.show_notice("Keep unavailable", &error),
+        if let Err(error) = self.keep_terminal(peek.terminal, created_ms) {
+            self.show_notice("Keep unavailable", &error);
         }
     }
 }

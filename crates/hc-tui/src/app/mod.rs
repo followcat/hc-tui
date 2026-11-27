@@ -29,6 +29,7 @@ mod init;
 pub(crate) mod input;
 mod input_dispatch;
 mod install_flow;
+mod keep;
 mod key_leases;
 mod key_routing;
 mod layout_actions;

@@ -204,3 +204,91 @@ fn skipping_wide_tail_scan_matches_the_full_scan() {
         );
     }
 }
+
+#[test]
+fn cjk_text_straddling_popup_edges_blanks_halves_and_keeps_borders() {
+    use ratatui::buffer::CellWidth;
+    let p = crate::chrome::palette::Palette::catppuccin();
+    let dim_style = Style::default()
+        .fg(Color::Rgb(110, 114, 124))
+        .bg(Color::Rgb(14, 16, 23));
+
+    for offset in [10u16, 11u16] {
+        let area = Rect::new(0, 0, 50, 9);
+        let mut buf = Buffer::empty(area);
+        for y in 0..area.height {
+            buf.set_string(
+                0,
+                y,
+                "甲乙丙丁戊己庚辛壬癸中文测试界面的宽度文字排版处理",
+                dim_style,
+            );
+        }
+        mark_wide_tail_slots(&mut buf);
+
+        let pop = Rect::new(offset, 2, 21, 5);
+        let geom = crate::chrome::popup_frame::PopupGeometry {
+            outer: pop,
+            border: pop,
+            inner: Rect::new(pop.x + 1, pop.y + 1, pop.width - 2, pop.height - 2),
+        };
+        let painted = crate::chrome::popup_frame::paint_frame(
+            &mut buf,
+            geom,
+            p.accent,
+            crate::chrome::popup_frame::PopupChrome::BorderJoined,
+            &p,
+            false,
+        );
+        assert!(painted.is_some());
+        mark_wide_tail_slots(&mut buf);
+
+        for y in pop.top()..pop.bottom() {
+            let left_border = &buf[(pop.x, y)];
+            assert_ne!(
+                left_border.diff_option,
+                CellDiffOption::Skip,
+                "offset={offset} y={y}: left border was skipped by left wide head"
+            );
+            assert!(
+                matches!(left_border.symbol(), "┌" | "│" | "└" | "╭" | "╰"),
+                "offset={offset} y={y}: left border symbol={:?}",
+                left_border.symbol()
+            );
+            let left_prev = &buf[(pop.x - 1, y)];
+            assert_eq!(
+                left_prev.cell_width(),
+                1,
+                "offset={offset} y={y}: outside left head width={} sym={:?}",
+                left_prev.cell_width(),
+                left_prev.symbol()
+            );
+            if offset % 2 == 1 {
+                assert_eq!(left_prev.symbol(), " ");
+                assert_eq!(left_prev.fg, dim_style.fg.unwrap());
+                assert_eq!(left_prev.bg, dim_style.bg.unwrap());
+            }
+            let right_next = &buf[(pop.right(), y)];
+            assert_ne!(
+                right_next.diff_option,
+                CellDiffOption::Skip,
+                "offset={offset} y={y}: orphaned tail skip at right edge"
+            );
+            if offset % 2 == 0 {
+                assert_eq!(
+                    right_next.cell_width(),
+                    1,
+                    "offset={offset} y={y}: right outside straddled tail width != 1"
+                );
+                assert_eq!(
+                    right_next.symbol(),
+                    " ",
+                    "offset={offset} y={y}: stale glyph in right outside tail"
+                );
+            } else {
+                assert_eq!(right_next.symbol(), "的");
+                assert_eq!(right_next.cell_width(), 2);
+            }
+        }
+    }
+}
