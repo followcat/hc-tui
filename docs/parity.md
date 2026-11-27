@@ -879,7 +879,8 @@ Everything else on the compared surfaces still diffs normally.
   opens an observe-only attach on the terminal, drawn as the reference's
   80%×80% floating dialog. Keep performs label → layout CAS →
   `terminal.keep` exactly like `terminal.keep` semantics describe; close
-  detaches without writes.
+  detaches without writes. Keep is refused with a notice when the peeked
+  terminal is on another machine than the focused one.
 - **Command-pane unwind.** The reference registers `pane`/`popup`
   command terminals as `overlay_panes` and removes the split, restores
   the previous focus and clears zoom when the command exits. hc-tui
