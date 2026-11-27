@@ -34,6 +34,7 @@ pub(crate) fn panel(
     if a.width < 2 || a.height < 2 {
         return None;
     }
+    super::wide::blank_wide_edges(b, a, false);
     let background = Style::default().bg(bg).remove_modifier(Modifier::DIM);
     let border = Style::default().fg(c).bg(bg).remove_modifier(Modifier::DIM);
     for y in a.y..a.bottom() {
