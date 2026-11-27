@@ -227,7 +227,20 @@ fn cjk_text_straddling_popup_edges_blanks_halves_and_keeps_borders() {
         mark_wide_tail_slots(&mut buf);
 
         let pop = Rect::new(offset, 2, 21, 5);
-        assert!(crate::chrome::dialogs::panel(&mut buf, pop, p.accent, p.panel_bg).is_some());
+        let geom = crate::chrome::popup_frame::PopupGeometry {
+            outer: pop,
+            border: pop,
+            inner: Rect::new(pop.x + 1, pop.y + 1, pop.width - 2, pop.height - 2),
+        };
+        let painted = crate::chrome::popup_frame::paint_frame(
+            &mut buf,
+            geom,
+            p.accent,
+            crate::chrome::popup_frame::PopupChrome::BorderJoined,
+            &p,
+            false,
+        );
+        assert!(painted.is_some());
         mark_wide_tail_slots(&mut buf);
 
         for y in pop.top()..pop.bottom() {
