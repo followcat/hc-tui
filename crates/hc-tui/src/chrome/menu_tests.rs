@@ -133,3 +133,31 @@ fn machine_items_are_the_hc_tui_extension() {
         ["Connect", "Rename machine", "Remove machine"]
     );
 }
+
+#[test]
+fn context_menu_uses_rounded_frame_and_toggleable_shadow() {
+    use super::render_context_menu_with_shadow;
+    use crate::chrome::palette::Palette;
+    use ratatui::buffer::Buffer;
+    use ratatui::layout::Rect;
+    use ratatui::style::Style;
+
+    let palette = Palette::catppuccin();
+    let shadow_bg = palette.elevation().shadow.expect("rgb shadow");
+    let m = menu(ContextMenuTarget::Tab {
+        tab_id: "t".into(),
+        workspace_id: "s".into(),
+    });
+    let area = Rect::new(0, 0, 40, 12);
+    let mut with_shadow = Buffer::empty(area);
+    with_shadow.set_style(area, Style::default().bg(palette.panel_bg));
+    assert!(render_context_menu_with_shadow(&mut with_shadow, &m, &palette, true).is_some());
+    assert_eq!(with_shadow[(m.x, m.y)].symbol(), "╭");
+    assert_eq!(with_shadow[(m.x + 1, m.y + 5)].bg, shadow_bg);
+
+    let mut no_shadow = Buffer::empty(area);
+    no_shadow.set_style(area, Style::default().bg(palette.panel_bg));
+    assert!(render_context_menu_with_shadow(&mut no_shadow, &m, &palette, false).is_some());
+    assert_eq!(no_shadow[(m.x, m.y)].symbol(), "╭");
+    assert_eq!(no_shadow[(m.x + 1, m.y + 5)].bg, palette.panel_bg);
+}

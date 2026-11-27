@@ -79,7 +79,7 @@ host-mode resets and retained-title parity, as well as termios restoration.
 
 ## Known differences
 
-Three documented hc-tui additions cannot be produced by the pinned reference.
+Documented hc-tui additions cannot be produced by the pinned reference.
 `checks.py` excuses them by **exact cell and exact content** (or, for the
 cursor, an identical position and visibility), never by a count or a column
 tolerance, and records them per checkpoint under `known_differences` with
@@ -91,13 +91,20 @@ their reason:
 - the navigator footer's pane id: hc names panes `t<N>` where the reference
   core names them `w<W>:p<P>`, so exactly the cells of that field are excused
   on the detail row, and only while nothing else on that row differs;
+- modal popup depth, elevation, and wide-edge straddle sanitation from backlot:
+  when an overlay renders a matching border pair (`┌┐└┘` vs `╭╮╰╯`),
+  `checks.py` excuses the overlay box + 1-cell outer gutter, the uniform
+  `(1, 1)` drop shadow, blanked wide graphemes straddling the popup or shadow
+  edges, and attribute-only backdrop dimming outside the popup where cell text
+  is identical;
 - the cursor shape and blink on `pane-exit` and `pane-closed`: the reference's
   core keeps reporting the closed Alt+P shell's last shape for the visible
   pane, while hc-tui shows that pane's own shape. Position and visibility must
   match exactly and nothing else about the cursor may differ.
 
-Every other difference — any other column of row 0, any other navigator cell,
-the cursor anywhere else, the host modes and the title — stays a failure.
+Every other difference — any other column of row 0, any text change outside an
+overlay box or inside a drop shadow, the cursor anywhere else, the host modes
+and the title — stays a failure.
 `docs/parity.md` documents the user-facing contract behind all three.
 
 The input runner compares real program bytes with the committed expected

@@ -114,6 +114,15 @@ BADGE_REASON = ('W1 chrome: hc-tui draws the running version badge (right-aligne
                 'expanded sidebar\'s header row); the reference draws nothing there')
 PANE_ID_REASON = ('navigator footer identity: hc names panes `t<N>` where the reference core '
                   'names them `w<W>:p<P>` (docs/parity.md)')
+POPUP_DEPTH_FRAME_REASON = ('popup depth frame: elevated overlay surface, 1-cell outer gutter, '
+                            'breathing padding and rounded `╭╮╰╯` borders from backlot '
+                            '(docs/parity.md)')
+POPUP_DEPTH_SHADOW_REASON = ('popup depth shadow: `(1, 1)` translucent drop shadow around modals, '
+                             'popups and context menus (docs/parity.md)')
+POPUP_DEPTH_BACKDROP_REASON = ('popup depth backdrop: palette-derived `dim_bg` attenuation on '
+                               'cells outside modals and popups (docs/parity.md)')
+POPUP_WIDE_STRADDLE_REASON = ('popup wide edge: wide graphemes straddling popup or shadow edges '
+                              'are blanked whole on adjacent cells (docs/parity.md)')
 
 VERSION_BADGE = re.compile(r'v[0-9]+\.[0-9]+\.[0-9]+')
 PANE_ID = re.compile(r't[0-9]+$')
@@ -175,6 +184,135 @@ def _navigator_pane_id_cells(reference, candidate):
     return set()
 
 
+def _find_box(rows, top_left, top_right, bottom_left, bottom_right):
+    """Locate a drawn border box (`x0, y0, x1, y1` inclusive) or `None`."""
+    height = len(rows)
+    for y0 in range(height):
+        top_cells = rows[y0]['cells']
+        width = len(top_cells)
+        for x0 in range(width):
+            if top_cells[x0]['text'] != top_left:
+                continue
+            for x1 in range(x0 + 3, width):
+                if top_cells[x1]['text'] != top_right:
+                    continue
+                for y1 in range(y0 + 2, height):
+                    bot_cells = rows[y1]['cells']
+                    if (bot_cells[x0]['text'] != bottom_left
+                            or bot_cells[x1]['text'] != bottom_right):
+                        continue
+                    if not all(bot_cells[x]['text'] == '─' for x in range(x0 + 1, x1)):
+                        continue
+                    if all(rows[y]['cells'][x0]['text'] == '│'
+                           and rows[y]['cells'][x1]['text'] == '│'
+                           for y in range(y0 + 1, y1)):
+                        return (x0, y0, x1, y1)
+    return None
+
+
+def _box_cells(box):
+    x0, y0, x1, y1 = box
+    return {(y, x) for y in range(y0, y1 + 1) for x in range(x0, x1 + 1)}
+
+
+def _candidate_outer_box(candidate, cand_border):
+    """Include the 1-cell elevated gutter around `cand_border` when present."""
+    rows = candidate['cells']
+    height = len(rows)
+    width = len(rows[0]['cells']) if height else 0
+    bx0, by0, bx1, by1 = cand_border
+    if bx0 == 0 or by0 == 0 or bx1 + 1 >= width or by1 + 1 >= height:
+        return cand_border
+    border_bg = rows[by0]['cells'][bx0].get('resolved_bg')
+    if border_bg is None:
+        return cand_border
+    ring = (
+        [(by0 - 1, x) for x in range(bx0 - 1, bx1 + 2)]
+        + [(by1 + 1, x) for x in range(bx0 - 1, bx1 + 2)]
+        + [(y, bx0 - 1) for y in range(by0, by1 + 1)]
+        + [(y, bx1 + 1) for y in range(by0, by1 + 1)]
+    )
+    if all(rows[y]['cells'][x]['text'] == ' '
+           and rows[y]['cells'][x].get('resolved_bg') == border_bg
+           for y, x in ring):
+        return (bx0 - 1, by0 - 1, bx1 + 1, by1 + 1)
+    return cand_border
+
+
+def _popup_depth_cells(reference, candidate, badge):
+    """Exact cells for popup/modal/menu depth & wide-edge straddle differences."""
+    ref_rows = reference['cells']
+    cand_rows = candidate['cells']
+    if len(ref_rows) != len(cand_rows) or not cand_rows:
+        return set(), set(), set(), set()
+    ref_box = _find_box(ref_rows, '┌', '┐', '└', '┘')
+    cand_border = _find_box(cand_rows, '╭', '╮', '╰', '╯')
+    if not ref_box or not cand_border:
+        return set(), set(), set(), set()
+    cand_outer = _candidate_outer_box(candidate, cand_border)
+    frame_set = _box_cells(cand_outer) | _box_cells(ref_box)
+
+    height = len(cand_rows)
+    width = len(cand_rows[0]['cells'])
+    ox0, oy0, ox1, oy1 = cand_outer
+    shadow_candidates = set()
+    if ox1 + 1 < width:
+        for y in range(oy0 + 1, min(height, oy1 + 2)):
+            shadow_candidates.add((y, ox1 + 1))
+    if oy1 + 1 < height:
+        for x in range(ox0 + 1, min(width, ox1 + 2)):
+            shadow_candidates.add((oy1 + 1, x))
+    diff_shadows = {
+        (y, x) for (y, x) in shadow_candidates - frame_set
+        if ref_rows[y]['cells'][x] != cand_rows[y]['cells'][x]
+    }
+    shadow_set = set()
+    if diff_shadows:
+        bgs = {
+            tuple(bg) if bg is not None else None
+            for bg in (cand_rows[y]['cells'][x].get('resolved_bg') for (y, x) in diff_shadows)
+        }
+        if len(bgs) == 1 and next(iter(bgs)) is not None and all(
+            cand_rows[y]['cells'][x]['text'] == ref_rows[y]['cells'][x]['text']
+            or (cand_rows[y]['cells'][x]['text'] == ' '
+                and ref_rows[y]['cells'][x].get('wide') in ('Head', 'SpacerTail'))
+            for (y, x) in diff_shadows
+        ):
+            shadow_set = diff_shadows
+
+    seam_candidates = set()
+    if ox0 > 0:
+        for y in range(oy0, oy1 + 1):
+            seam_candidates.add((y, ox0 - 1))
+    if ox1 + 1 < width:
+        for y in range(oy0, oy1 + 1):
+            seam_candidates.add((y, ox1 + 1))
+    if ox1 + 2 < width:
+        for y in range(oy0 + 1, min(height, oy1 + 2)):
+            seam_candidates.add((y, ox1 + 2))
+    if oy1 + 1 < height:
+        seam_candidates.add((oy1 + 1, ox0))
+    wide_set = {
+        (y, x) for (y, x) in seam_candidates - frame_set - shadow_set
+        if ref_rows[y]['cells'][x] != cand_rows[y]['cells'][x]
+        and cand_rows[y]['cells'][x]['text'] == ' '
+        and ref_rows[y]['cells'][x].get('wide') in ('Head', 'SpacerTail')
+    }
+
+    backdrop_set = set()
+    covered = frame_set | shadow_set | wide_set
+    for y, (row_a, row_b) in enumerate(zip(ref_rows, cand_rows, strict=True)):
+        for x, (a, b) in enumerate(zip(row_a['cells'], row_b['cells'], strict=True)):
+            if a == b or (y, x) in covered:
+                continue
+            if y == 0 and x in badge and a['text'] == ' ':
+                continue
+            if a['text'] == b['text']:
+                backdrop_set.add((y, x))
+
+    return frame_set, shadow_set, backdrop_set, wide_set
+
+
 def known_differences(reference, candidate):
     """The documented differences this pair carries, as `reason -> cells`.
 
@@ -182,15 +320,26 @@ def known_differences(reference, candidate):
     count beside the checkpoint, never instead of comparing the rest."""
     badge = _badge_columns(candidate)
     pane_id = _navigator_pane_id_cells(reference, candidate)
+    frame_set, shadow_set, backdrop_set, wide_set = _popup_depth_cells(
+        reference, candidate, badge)
     found = {}
     for row_a, row_b in zip(reference['cells'], candidate['cells'], strict=True):
+        y = row_a['y']
         for column, (a, b) in enumerate(zip(row_a['cells'], row_b['cells'], strict=True)):
             if a == b:
                 continue
-            if row_a['y'] == 0 and column in badge and a['text'] == ' ':
-                found.setdefault(BADGE_REASON, []).append((row_a['y'], column))
-            elif (row_a['y'], column) in pane_id:
-                found.setdefault(PANE_ID_REASON, []).append((row_a['y'], column))
+            if y == 0 and column in badge and a['text'] == ' ':
+                found.setdefault(BADGE_REASON, []).append((y, column))
+            elif (y, column) in pane_id:
+                found.setdefault(PANE_ID_REASON, []).append((y, column))
+            elif (y, column) in frame_set:
+                found.setdefault(POPUP_DEPTH_FRAME_REASON, []).append((y, column))
+            elif (y, column) in shadow_set:
+                found.setdefault(POPUP_DEPTH_SHADOW_REASON, []).append((y, column))
+            elif (y, column) in wide_set:
+                found.setdefault(POPUP_WIDE_STRADDLE_REASON, []).append((y, column))
+            elif (y, column) in backdrop_set:
+                found.setdefault(POPUP_DEPTH_BACKDROP_REASON, []).append((y, column))
     return found
 
 

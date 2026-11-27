@@ -10,8 +10,9 @@ use ratatui::{
 };
 
 use super::{
-    dialogs::{button, contrast, panel, popup, row},
+    dialogs::{button, contrast, row},
     palette::Palette,
+    popup_frame::{PopupChrome, open_centered, overlay_bg},
     render::{display_width, put_text},
     settings::{
         IntegrationInfo, IntegrationState, SettingsOverlay, SettingsSection,
@@ -35,7 +36,7 @@ fn choice_style(selected: bool, palette: &Palette) -> Style {
             .bg(palette.accent)
             .add_modifier(Modifier::BOLD)
     } else {
-        Style::default().fg(palette.text).bg(palette.panel_bg)
+        Style::default().fg(palette.text).bg(overlay_bg(palette))
     }
 }
 
@@ -61,10 +62,11 @@ fn draw_choice(
     );
 }
 
-pub(crate) fn render_settings_overlay(
+pub(crate) fn render_settings_overlay_with_shadow(
     buffer: &mut Buffer,
     settings: &SettingsOverlay,
     palette: &Palette,
+    shadow: bool,
 ) -> Option<SettingsRender> {
     // The reference also reserves rows for install messages; hc-tui's
     // integration list is always empty, so no messages exist.
@@ -74,8 +76,21 @@ pub(crate) fn render_settings_overlay(
     } else {
         22
     };
-    let popup = popup(buffer.area, 76, height)?;
-    let inner = panel(buffer, popup, palette.accent, palette.panel_bg)?;
+    let geom = open_centered(
+        buffer,
+        buffer.area,
+        74,
+        height.saturating_sub(2),
+        4,
+        4,
+        palette.accent,
+        PopupChrome::Standard,
+        palette,
+        shadow,
+    )?;
+    let popup = geom.outer;
+    let inner = geom.inner;
+    let bg = overlay_bg(palette);
     if inner.width < 20 || inner.height < 8 {
         return None;
     }
@@ -88,7 +103,7 @@ pub(crate) fn render_settings_overlay(
         " settings",
         Style::default()
             .fg(palette.text)
-            .bg(palette.panel_bg)
+            .bg(bg)
             .add_modifier(Modifier::BOLD),
     );
 
@@ -114,7 +129,7 @@ pub(crate) fn render_settings_overlay(
                 .bg(palette.accent)
                 .add_modifier(Modifier::BOLD)
         } else {
-            Style::default().fg(palette.overlay1).bg(palette.panel_bg)
+            Style::default().fg(palette.overlay1).bg(bg)
         };
         buffer.set_style(rect, style);
         put_text(buffer, rect.x, rect.y, rect.width, &label, style);
@@ -127,7 +142,7 @@ pub(crate) fn render_settings_overlay(
                 "● ",
                 Style::default()
                     .fg(palette.accent)
-                    .bg(palette.panel_bg)
+                    .bg(bg)
                     .add_modifier(Modifier::BOLD),
             );
         }
@@ -143,7 +158,7 @@ pub(crate) fn render_settings_overlay(
         inner.y + 2,
         inner.width,
         &"─".repeat(inner.width as usize),
-        Style::default().fg(palette.surface0).bg(palette.panel_bg),
+        Style::default().fg(palette.elevation().border_muted).bg(bg),
     );
 
     let content = Rect::new(
@@ -252,7 +267,7 @@ pub(crate) fn render_settings_overlay(
         " esc close ",
         Style::default()
             .fg(palette.text)
-            .bg(palette.surface0)
+            .bg(palette.elevation().raised_on_overlay)
             .add_modifier(Modifier::BOLD),
     );
     put_text(
@@ -261,7 +276,7 @@ pub(crate) fn render_settings_overlay(
         inner.bottom().saturating_sub(2),
         inner.width,
         " ↑↓ select  tab section",
-        Style::default().fg(palette.overlay1).bg(palette.panel_bg),
+        Style::default().fg(palette.overlay1).bg(bg),
     );
 
     Some(SettingsRender {
@@ -284,6 +299,7 @@ fn render_choice_section(
     palette: &Palette,
     hits: &mut Vec<(Rect, usize)>,
 ) {
+    let bg = overlay_bg(palette);
     put_text(
         buffer,
         area.x,
@@ -292,7 +308,7 @@ fn render_choice_section(
         title,
         Style::default()
             .fg(palette.text)
-            .bg(palette.panel_bg)
+            .bg(bg)
             .add_modifier(Modifier::BOLD),
     );
     put_text(
@@ -301,7 +317,7 @@ fn render_choice_section(
         area.y + 1,
         area.width,
         description,
-        Style::default().fg(palette.overlay1).bg(palette.panel_bg),
+        Style::default().fg(palette.overlay1).bg(bg),
     );
     let row_gap = u16::from(choices.len() > 2);
     for (index, choice) in choices.iter().enumerate() {
@@ -321,6 +337,7 @@ fn render_integrations(
     settings: &SettingsOverlay,
     palette: &Palette,
 ) {
+    let bg = overlay_bg(palette);
     put_text(
         buffer,
         area.x,
@@ -329,7 +346,7 @@ fn render_integrations(
         "agent integrations",
         Style::default()
             .fg(palette.text)
-            .bg(palette.panel_bg)
+            .bg(bg)
             .add_modifier(Modifier::BOLD),
     );
     put_text(
@@ -338,7 +355,7 @@ fn render_integrations(
         area.y + 1,
         area.width,
         "enable session restore and, where supported, direct status updates",
-        Style::default().fg(palette.overlay1).bg(palette.panel_bg),
+        Style::default().fg(palette.overlay1).bg(bg),
     );
     if settings.loading_integrations {
         put_text(
@@ -347,7 +364,7 @@ fn render_integrations(
             area.y + 3,
             area.width,
             " loading integrations…",
-            Style::default().fg(palette.overlay1).bg(palette.panel_bg),
+            Style::default().fg(palette.overlay1).bg(bg),
         );
         return;
     }
@@ -358,7 +375,7 @@ fn render_integrations(
             area.y + 3,
             area.width,
             " no integration targets available",
-            Style::default().fg(palette.overlay1).bg(palette.panel_bg),
+            Style::default().fg(palette.overlay1).bg(bg),
         );
         return;
     }
@@ -374,7 +391,7 @@ fn render_integrations(
             y,
             3,
             &format!(" {marker}"),
-            Style::default().fg(color).bg(palette.panel_bg),
+            Style::default().fg(color).bg(bg),
         );
         put_text(
             buffer,
@@ -382,7 +399,7 @@ fn render_integrations(
             y,
             11.min(area.width.saturating_sub(3)),
             &format!("{:<9}", integration.label),
-            Style::default().fg(palette.subtext0).bg(palette.panel_bg),
+            Style::default().fg(palette.subtext0).bg(bg),
         );
         put_text(
             buffer,
@@ -390,7 +407,7 @@ fn render_integrations(
             y,
             area.width.saturating_sub(14),
             status,
-            Style::default().fg(palette.overlay1).bg(palette.panel_bg),
+            Style::default().fg(palette.overlay1).bg(bg),
         );
     }
     let message_y = area
@@ -404,7 +421,7 @@ fn render_integrations(
             message_y,
             area.width,
             " installing…",
-            Style::default().fg(palette.overlay1).bg(palette.panel_bg),
+            Style::default().fg(palette.overlay1).bg(bg),
         );
     }
 }

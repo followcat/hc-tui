@@ -101,17 +101,23 @@ pub(super) fn render_overlays_and_cursor(
     app.help_hits = if app.help {
         overlay_painted = true;
         // Source overlays reconstruct the wire frame as ratatui cells first
-        // (wire.rs u16_to_modifier drops extended underline bits), then dim
-        // the whole background before the panel removes DIM in its own area.
+        // (wire.rs u16_to_modifier drops extended underline bits) before
+        // dimming the backdrop via `popup_frame`.
         for cell in &mut buf.content {
             cell.modifier = Modifier::from_bits_truncate(cell.modifier.bits() & !0xf000);
-            cell.set_style(cell.style().add_modifier(Modifier::DIM));
         }
-        crate::chrome::help::render_help_overlay(
+        crate::chrome::popup_frame::dim_backdrop(
+            buf,
+            &app.shell.palette,
+            app.shell.popup_backdrop,
+            None,
+        );
+        crate::chrome::help::render_help_overlay_with_shadow(
             buf,
             &app.help_state,
             &app.live,
             &app.shell.palette,
+            app.shell.popup_shadow,
         )
         .unwrap_or_default()
     } else {
@@ -219,22 +225,25 @@ pub(super) fn render_overlays_and_cursor(
         };
     }
     // `render_client_overlay` draws the overlay over the notices and
-    // the restored mode bar; the Navigator variant is the only one the
-    // reference does not dim the background for.
+    // the restored mode bar.
     app.navigator_hits = if let Some(navigator) = app.navigator.as_ref() {
         overlay_painted = true;
-        // The source composes overlays by rebuilding the wire frame as
-        // ratatui cells (wire.rs u16_to_modifier drops extended underline
-        // bits); it does not dim the background for the navigator.
         for cell in &mut buf.content {
             cell.modifier = Modifier::from_bits_truncate(cell.modifier.bits() & !0xf000);
         }
-        crate::chrome::navigator_render::render_navigator_overlay(
+        crate::chrome::popup_frame::dim_backdrop(
+            buf,
+            &app.shell.palette,
+            app.shell.popup_backdrop,
+            None,
+        );
+        crate::chrome::navigator_render::render_navigator_overlay_with_shadow(
             buf,
             navigator,
             &app.projection.endpoints,
             &app.projection.active_endpoint_id,
             &app.shell.palette,
+            app.shell.popup_shadow,
         )
         .unwrap_or_default()
     } else {
@@ -253,10 +262,20 @@ pub(super) fn render_overlays_and_cursor(
         overlay_painted = true;
         for cell in &mut buf.content {
             cell.modifier = Modifier::from_bits_truncate(cell.modifier.bits() & !0xf000);
-            cell.set_style(cell.style().add_modifier(Modifier::DIM));
         }
-        crate::chrome::settings_render::render_settings_overlay(buf, settings, &app.shell.palette)
-            .unwrap_or_default()
+        crate::chrome::popup_frame::dim_backdrop(
+            buf,
+            &app.shell.palette,
+            app.shell.popup_backdrop,
+            None,
+        );
+        crate::chrome::settings_render::render_settings_overlay_with_shadow(
+            buf,
+            settings,
+            &app.shell.palette,
+            app.shell.popup_shadow,
+        )
+        .unwrap_or_default()
     } else {
         crate::chrome::settings_render::SettingsRender::default()
     };
@@ -265,8 +284,13 @@ pub(super) fn render_overlays_and_cursor(
         overlay_painted = true;
         for cell in &mut buf.content {
             cell.modifier = Modifier::from_bits_truncate(cell.modifier.bits() & !0xf000);
-            cell.set_style(cell.style().add_modifier(Modifier::DIM));
         }
+        crate::chrome::popup_frame::dim_backdrop(
+            buf,
+            &app.shell.palette,
+            app.shell.popup_backdrop,
+            None,
+        );
         let view = crate::app::update_modal::view(
             modal,
             &app.update_state,
@@ -274,7 +298,12 @@ pub(super) fn render_overlays_and_cursor(
             app.update_notes_fetching,
             app.install.as_ref(),
         );
-        let rendered = crate::chrome::update_modal::render(buf, &view, &app.shell.palette);
+        let rendered = crate::chrome::update_modal::render_with_shadow(
+            buf,
+            &view,
+            &app.shell.palette,
+            app.shell.popup_shadow,
+        );
         if let (Some(modal), Some(rendered)) = (app.update_modal.as_mut(), rendered) {
             modal.render = rendered;
         }
@@ -291,9 +320,12 @@ pub(super) fn render_overlays_and_cursor(
         for cell in &mut buf.content {
             cell.modifier = Modifier::from_bits_truncate(cell.modifier.bits() & !0xf000);
         }
-        if let Some(rendered) =
-            crate::chrome::menu::render_context_menu(buf, menu, &app.shell.palette)
-        {
+        if let Some(rendered) = crate::chrome::menu::render_context_menu_with_shadow(
+            buf,
+            menu,
+            &app.shell.palette,
+            app.shell.popup_shadow,
+        ) {
             app.hit_map.context_menu_rows = rendered.rows;
         }
         app.want_cursor.pos = None;
