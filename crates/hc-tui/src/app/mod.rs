@@ -6,6 +6,7 @@
 //! M3a implements structure, layout/tab operations and bindings plus lock.
 //! Custom commands, notifications and remaining actions belong to M4.
 
+mod agent_folds;
 mod agent_ops;
 mod agent_presentation;
 mod closing;
@@ -28,6 +29,7 @@ mod init;
 pub(crate) mod input;
 mod input_dispatch;
 mod install_flow;
+mod keep;
 mod key_leases;
 mod key_routing;
 mod layout_actions;

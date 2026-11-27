@@ -1,9 +1,24 @@
 //! Space headers in the grouped agents panel across machines.
 
+use std::collections::{HashMap, HashSet};
+use std::sync::LazyLock;
+
+use crate::chrome::agent_folds::AgentFolds;
 use crate::chrome::snapshot::{ClientEndpointId, ClientShellEndpoint};
 use crate::config::AgentPanelSortConfig;
 use crate::project::project;
 use crate::sidebar::fixture::{agent, machine, view};
+
+/// No space is folded.
+fn no_folds() -> AgentFolds<'static> {
+    static LOCAL: LazyLock<HashSet<String>> = LazyLock::new(HashSet::new);
+    static REMOTE: LazyLock<HashMap<ClientEndpointId, HashSet<String>>> =
+        LazyLock::new(HashMap::new);
+    AgentFolds {
+        local: &LOCAL,
+        remote: &REMOTE,
+    }
+}
 
 fn shell(sort: AgentPanelSortConfig, space_headers: bool) -> crate::chrome::ClientShellConfig {
     let mut shell = crate::chrome::ClientShellConfig::from_config(
@@ -46,15 +61,30 @@ fn panel(
     agent_view_label: Option<&str>,
     shell: &crate::chrome::ClientShellConfig,
 ) -> Vec<String> {
-    super::panel_entries(endpoints, &ClientEndpointId::Local, agent_view_label, shell)
-        .into_iter()
-        .map(|entry| match entry {
-            super::PanelEntry::Space { label, gap } => {
-                format!("{}[{label}]", if gap { "~" } else { "" })
-            }
-            super::PanelEntry::Agent(row) => row.agent.pane_id,
-        })
-        .collect()
+    panel_with(endpoints, agent_view_label, shell, no_folds())
+}
+
+fn panel_with(
+    endpoints: &[ClientShellEndpoint],
+    agent_view_label: Option<&str>,
+    shell: &crate::chrome::ClientShellConfig,
+    folds: AgentFolds<'_>,
+) -> Vec<String> {
+    super::panel_entries(
+        endpoints,
+        &ClientEndpointId::Local,
+        agent_view_label,
+        shell,
+        folds,
+    )
+    .into_iter()
+    .map(|entry| match entry {
+        super::PanelEntry::Space { label, gap, .. } => {
+            format!("{}[{label}]", if gap { "~" } else { "" })
+        }
+        super::PanelEntry::Agent(row) => row.agent.pane_id,
+    })
+    .collect()
 }
 
 #[test]
@@ -123,6 +153,7 @@ fn agent_entry_index_counts_the_space_headers_above_it() {
             &ClientEndpointId::Local,
             None,
             &shell(AgentPanelSortConfig::Spaces, space_headers),
+            no_folds(),
             &ClientEndpointId::Remote("host-b".into()),
             "host-b/t5",
         )
@@ -135,10 +166,76 @@ fn agent_entry_index_counts_the_space_headers_above_it() {
             &ClientEndpointId::Local,
             None,
             &shell(AgentPanelSortConfig::Spaces, true),
+            no_folds(),
             &ClientEndpointId::Remote("host-a".into()),
             "host-b/t5",
         ),
         None,
         "an agent is matched on its machine as well as its pane"
     );
+}
+
+/// The workspace id of `label` on the machine `endpoint_id` names.
+fn space_of(
+    endpoints: &[ClientShellEndpoint],
+    endpoint_id: &ClientEndpointId,
+    label: &str,
+) -> String {
+    endpoints
+        .iter()
+        .find(|endpoint| &endpoint.endpoint_id == endpoint_id)
+        .and_then(|endpoint| endpoint.snapshot.as_deref())
+        .and_then(|snapshot| snapshot.workspaces.iter().find(|w| w.label == label))
+        .unwrap_or_else(|| panic!("no space {label}"))
+        .workspace_id
+        .clone()
+}
+
+#[test]
+fn a_folded_remote_space_keeps_its_header_and_leaves_the_same_named_local_space_open() {
+    let endpoints = three_machines();
+    let shell = shell(AgentPanelSortConfig::Spaces, true);
+    let host_a = ClientEndpointId::Remote("host-a".into());
+    let local = HashSet::new();
+    let remote = HashMap::from([(
+        host_a.clone(),
+        HashSet::from([space_of(&endpoints, &host_a, "dotfiles")]),
+    )]);
+    let folds = AgentFolds {
+        local: &local,
+        remote: &remote,
+    };
+    assert_eq!(
+        panel_with(&endpoints, None, &shell, folds),
+        [
+            "[dotfiles]",
+            "t1",
+            "t2",
+            "~[dotfiles]",
+            "~[proj]",
+            "host-a/t4",
+            "~[proj]",
+            "host-b/t5",
+        ],
+        "host-a's dotfiles keeps only its header; the local dotfiles and host-b's proj stay open"
+    );
+}
+
+#[test]
+fn a_fold_on_one_machine_never_folds_the_same_space_id_on_another() {
+    let endpoints = three_machines();
+    let shell = shell(AgentPanelSortConfig::Spaces, true);
+    let host_b = ClientEndpointId::Remote("host-b".into());
+    let local = HashSet::new();
+    let remote = HashMap::from([(
+        host_b.clone(),
+        HashSet::from([space_of(&endpoints, &host_b, "proj")]),
+    )]);
+    let folds = AgentFolds {
+        local: &local,
+        remote: &remote,
+    };
+    let rows = panel_with(&endpoints, None, &shell, folds);
+    assert!(rows.contains(&"host-a/t4".to_owned()), "{rows:?}");
+    assert!(!rows.contains(&"host-b/t5".to_owned()), "{rows:?}");
 }

@@ -359,6 +359,7 @@ pub(crate) fn render_expanded(
         state.endpoints,
         state.active_endpoint_id,
         config,
+        state.agent_folds,
         state.agent_scroll,
         state.reveal_focused_agent,
         hits,

@@ -8,35 +8,44 @@ use super::*;
 use crate::chrome::snapshot::ClientEndpointId;
 use crate::preferences::{ClientChromePreferences, ClientRemoteCollapsedGroups};
 
+/// A set's members in file order.
+fn sorted(set: &std::collections::HashSet<String>) -> Vec<String> {
+    let mut members = set.iter().cloned().collect::<Vec<_>>();
+    members.sort();
+    members
+}
+
+/// The non-empty per-machine sets as the file's entries, ordered by machine.
+fn remote_saved(
+    sets: &std::collections::HashMap<ClientEndpointId, std::collections::HashSet<String>>,
+) -> Vec<ClientRemoteCollapsedGroups> {
+    let mut saved = sets
+        .iter()
+        .filter_map(|(endpoint_id, members)| {
+            let ClientEndpointId::Remote(profile_id) = endpoint_id else {
+                return None;
+            };
+            let collapsed_groups = sorted(members);
+            (!collapsed_groups.is_empty()).then(|| ClientRemoteCollapsedGroups {
+                profile_id: profile_id.to_string(),
+                collapsed_groups,
+            })
+        })
+        .collect::<Vec<_>>();
+    saved.sort_by(|left, right| left.profile_id.cmp(&right.profile_id));
+    saved
+}
+
 impl App {
     pub(super) fn persist_chrome_preferences(&mut self) {
         let Some(path) = self.shell.preferences_path.clone() else {
             return;
         };
-        let mut collapsed_groups = self
-            .shell_state
-            .collapsed_groups
-            .iter()
-            .cloned()
-            .collect::<Vec<_>>();
-        collapsed_groups.sort();
-        let mut remote_collapsed_groups = self
-            .shell_state
-            .remote_collapsed_groups
-            .iter()
-            .filter_map(|(endpoint_id, groups)| {
-                let ClientEndpointId::Remote(profile_id) = endpoint_id else {
-                    return None;
-                };
-                let mut collapsed_groups = groups.iter().cloned().collect::<Vec<_>>();
-                collapsed_groups.sort();
-                (!collapsed_groups.is_empty()).then(|| ClientRemoteCollapsedGroups {
-                    profile_id: profile_id.to_string(),
-                    collapsed_groups,
-                })
-            })
-            .collect::<Vec<_>>();
-        remote_collapsed_groups.sort_by(|left, right| left.profile_id.cmp(&right.profile_id));
+        let state = &self.shell_state;
+        let collapsed_groups = sorted(&state.collapsed_groups);
+        let remote_collapsed_groups = remote_saved(&state.remote_collapsed_groups);
+        let collapsed_agent_spaces = sorted(&state.collapsed_agent_spaces);
+        let remote_collapsed_agent_spaces = remote_saved(&state.remote_collapsed_agent_spaces);
         let preferences = ClientChromePreferences {
             sidebar_width: self.sidebar_width_manual.then_some(self.sidebar_width),
             sidebar_section_split: self
@@ -50,6 +59,8 @@ impl App {
                 .then_some(self.shell.agent_panel_sort),
             collapsed_groups,
             remote_collapsed_groups,
+            collapsed_agent_spaces,
+            remote_collapsed_agent_spaces,
         };
         if let Err(error) = crate::preferences::store(&path, &preferences) {
             self.show_notice("Client shell state", &error);

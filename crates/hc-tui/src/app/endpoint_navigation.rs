@@ -109,6 +109,7 @@ impl App {
         let Some(target) = agents.get(next).cloned() else {
             return;
         };
+        self.unfold_agent_space_of(&target.endpoint_id, &target.pane_id);
         self.focus_pane(target.pane_id.clone());
         self.reveal_endpoint_agent(&target);
     }
@@ -146,6 +147,7 @@ impl App {
                 &self.projection.active_endpoint_id,
                 self.projection.snapshot.agent_view_label.as_deref(),
                 &self.shell,
+                self.agent_folds(),
                 &target.endpoint_id,
                 &target.pane_id,
             )

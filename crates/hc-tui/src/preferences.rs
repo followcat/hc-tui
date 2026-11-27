@@ -50,6 +50,13 @@ pub struct ClientChromePreferences {
     /// Collapsed groups per remote machine.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub remote_collapsed_groups: Vec<ClientRemoteCollapsedGroups>,
+    /// Space groups folded in the agents panel on the local endpoint.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub collapsed_agent_spaces: Vec<String>,
+    /// Folded agent-panel space groups per remote machine; the entry's
+    /// `collapsed_groups` holds the workspace ids.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub remote_collapsed_agent_spaces: Vec<ClientRemoteCollapsedGroups>,
 }
 
 /// The resolved state root: `$XDG_STATE_HOME`, else `~/.local/state` —
@@ -214,6 +221,55 @@ mod tests {
 
         assert_eq!(preferences.collapsed_groups, ["/repo"]);
         assert!(preferences.remote_collapsed_groups.is_empty());
+    }
+
+    #[test]
+    fn the_fold_lists_round_trip_through_the_file_beside_the_other_fields() {
+        let dir = TestDir::new("hctui-prefs-folds");
+        let path = dir.join("prefs.json");
+        let saved = ClientChromePreferences {
+            sidebar_width: Some(30),
+            collapsed_groups: vec!["/repo".into()],
+            collapsed_agent_spaces: vec!["space:1:S".into()],
+            remote_collapsed_agent_spaces: vec![ClientRemoteCollapsedGroups {
+                profile_id: "host-a".into(),
+                collapsed_groups: vec!["space:1:U".into()],
+            }],
+            ..ClientChromePreferences::default()
+        };
+        store(&path, &saved).expect("store");
+        let loaded = load(&path).expect("load");
+        assert_eq!(loaded.collapsed_agent_spaces, ["space:1:S"]);
+        assert_eq!(loaded.remote_collapsed_agent_spaces.len(), 1);
+        assert_eq!(loaded.remote_collapsed_agent_spaces[0].profile_id, "host-a");
+        assert_eq!(
+            loaded.remote_collapsed_agent_spaces[0].collapsed_groups,
+            ["space:1:U"]
+        );
+        assert_eq!(loaded.sidebar_width, Some(30));
+        assert_eq!(loaded.collapsed_groups, ["/repo"]);
+        // The key a hand-written or older file uses is the field's name.
+        let by_hand: ClientChromePreferences =
+            serde_json::from_str(r#"{"collapsed_agent_spaces":["S"]}"#).unwrap();
+        assert_eq!(by_hand.collapsed_agent_spaces, ["S"]);
+    }
+
+    #[test]
+    fn a_file_without_the_fold_fields_loads_with_no_folds() {
+        let loaded: ClientChromePreferences = serde_json::from_str(
+            r#"{"sidebar_width":28,"agent_panel_sort":"spaces","collapsed_groups":["/repo"]}"#,
+        )
+        .expect("an older file");
+        assert!(loaded.collapsed_agent_spaces.is_empty());
+        assert!(loaded.remote_collapsed_agent_spaces.is_empty());
+        assert_eq!(loaded.sidebar_width, Some(28));
+        assert_eq!(loaded.collapsed_groups, ["/repo"]);
+        assert!(loaded.agent_panel_sort.is_some());
+        let written = serde_json::to_string(&loaded).unwrap();
+        assert!(
+            !written.contains("agent_spaces"),
+            "empty folds are not written"
+        );
     }
 
     #[test]

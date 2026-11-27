@@ -1,6 +1,11 @@
 // Derived from herdr src/client/shell/overlays.rs and state.rs (Apache-2.0).
 use super::{
-    palette::Palette, render::put_text, text::display_width, text_editor, text_editor::TextEditor,
+    dialogs::{button, contrast},
+    palette::Palette,
+    popup_frame::{self, PopupChrome, overlay_bg},
+    render::put_text,
+    text_editor,
+    text_editor::TextEditor,
 };
 use crate::config::LiveKeybindConfig;
 use ratatui::{
@@ -51,13 +56,14 @@ fn help_lines(
         .filter(|width| *width <= MAX_KEY_COLUMN)
         .max()
         .unwrap_or(8);
+    let bg = overlay_bg(palette);
     if groups.is_empty() {
         let message = " no matching keybinds";
         return vec![(
             message.chars().count(),
             Line::from(Span::styled(
                 message,
-                Style::default().fg(palette.overlay1).bg(palette.panel_bg),
+                Style::default().fg(palette.overlay1).bg(bg),
             )),
         )];
     }
@@ -70,7 +76,7 @@ fn help_lines(
                 format!(" {group}"),
                 Style::default()
                     .fg(palette.accent)
-                    .bg(palette.panel_bg)
+                    .bg(bg)
                     .add_modifier(Modifier::BOLD),
             )),
         ));
@@ -84,13 +90,10 @@ fn help_lines(
                         padded_key,
                         Style::default()
                             .fg(palette.mauve)
-                            .bg(palette.panel_bg)
+                            .bg(bg)
                             .add_modifier(Modifier::BOLD),
                     ),
-                    Span::styled(
-                        label.into_owned(),
-                        Style::default().fg(palette.text).bg(palette.panel_bg),
-                    ),
+                    Span::styled(label.into_owned(), Style::default().fg(palette.text).bg(bg)),
                 ]),
             ));
         }
@@ -99,19 +102,33 @@ fn help_lines(
     lines
 }
 
-pub(crate) fn render_help_overlay(
+pub(crate) fn render_help_overlay_with_shadow(
     b: &mut Buffer,
     h: &HelpState,
     k: &LiveKeybindConfig,
     p: &Palette,
+    shadow: bool,
 ) -> Option<HelpRender> {
     use ratatui::widgets::{Paragraph, Widget, Wrap};
 
-    let q = popup(b.area, 76, 22)?;
-    let i = panel(b, q, p.accent, p.panel_bg)?;
+    let geom = popup_frame::open_centered(
+        b,
+        b.area,
+        74,
+        20,
+        4,
+        4,
+        p.accent,
+        PopupChrome::Standard,
+        p,
+        shadow,
+    )?;
+    let q = geom.outer;
+    let i = geom.inner;
     if i.width < 20 || i.height < 6 {
         return None;
     }
+    let bg = overlay_bg(p);
     put_text(
         b,
         i.x,
@@ -120,7 +137,7 @@ pub(crate) fn render_help_overlay(
         "keybinds",
         Style::default()
             .fg(p.text)
-            .bg(p.panel_bg)
+            .bg(bg)
             .add_modifier(Modifier::BOLD),
     );
     let close = Rect::new(i.right() - 13, i.y, 13, 1);
@@ -150,14 +167,14 @@ pub(crate) fn render_help_overlay(
         },
         Style::default()
             .fg(if h.search_focused { p.text } else { p.overlay0 })
-            .bg(p.panel_bg),
+            .bg(bg),
     );
     let cursor = if h.search_focused {
         text_editor::render(
             b,
             Rect::new(i.x + 3, sy, i.width.saturating_sub(3), 1),
             &h.query,
-            Style::default().fg(p.text).bg(p.panel_bg),
+            Style::default().fg(p.text).bg(bg),
         )
     } else {
         None
@@ -206,12 +223,12 @@ pub(crate) fn render_help_overlay(
         for y in track.y..track.bottom() {
             b[(track.x, y)]
                 .set_symbol("▐")
-                .set_style(Style::default().fg(p.overlay0).bg(p.panel_bg));
+                .set_style(Style::default().fg(p.overlay0).bg(bg));
         }
         for y in thumb.top..thumb.top.saturating_add(thumb.len) {
             b[(track.x, y)]
                 .set_symbol("▐")
-                .set_style(Style::default().fg(p.overlay1).bg(p.panel_bg));
+                .set_style(Style::default().fg(p.overlay1).bg(bg));
         }
     }
 
@@ -225,7 +242,7 @@ pub(crate) fn render_help_overlay(
         } else {
             " search / · scroll j/k/↑↓/pgup/pgdn · close esc/enter"
         },
-        Style::default().fg(p.overlay0).bg(p.panel_bg),
+        Style::default().fg(p.overlay0).bg(bg),
     );
     Some(HelpRender {
         area: q,
@@ -236,99 +253,20 @@ pub(crate) fn render_help_overlay(
         cursor,
     })
 }
-fn panel(
-    b: &mut Buffer,
-    a: Rect,
-    c: ratatui::style::Color,
-    bg: ratatui::style::Color,
-) -> Option<Rect> {
-    if a.width < 2 || a.height < 2 {
-        return None;
-    }
-    let background = Style::default().bg(bg).remove_modifier(Modifier::DIM);
-    let border = Style::default().fg(c).bg(bg).remove_modifier(Modifier::DIM);
-    for y in a.y..a.bottom() {
-        for x in a.x..a.right() {
-            b[(x, y)].set_symbol(" ").set_style(background);
-        }
-    }
-    for x in a.x..a.right() {
-        b[(x, a.y)]
-            .set_symbol(if x == a.x {
-                "┌"
-            } else if x + 1 == a.right() {
-                "┐"
-            } else {
-                "─"
-            })
-            .set_style(border);
-        let y = a.bottom() - 1;
-        b[(x, y)]
-            .set_symbol(if x == a.x {
-                "└"
-            } else if x + 1 == a.right() {
-                "┘"
-            } else {
-                "─"
-            })
-            .set_style(border);
-    }
-    for y in a.y + 1..a.bottom() - 1 {
-        b[(a.x, y)].set_symbol("│").set_style(border);
-        b[(a.right() - 1, y)].set_symbol("│").set_style(border);
-    }
-    Some(Rect::new(a.x + 1, a.y + 1, a.width - 2, a.height - 2))
-}
-fn popup(a: Rect, w: u16, h: u16) -> Option<Rect> {
-    popup_with_width_cap(a, w, h, 4)
-}
-
-fn popup_with_width_cap(a: Rect, w: u16, h: u16, width_cap: u16) -> Option<Rect> {
-    let w = w.min(a.width.saturating_sub(width_cap));
-    let h = h.min(a.height.saturating_sub(2));
-    if w < 4 || h < 4 {
-        return None;
-    }
-    Some(Rect::new(
-        a.x + (a.width - w) / 2,
-        a.y + (a.height - h) / 2,
-        w,
-        h,
-    ))
-}
-fn button(b: &mut Buffer, r: Rect, t: &str, s: Style) {
-    b.set_style(r, s);
-    let w = display_width(t).min(usize::from(r.width)) as u16;
-    put_text(b, r.x + (r.width - w) / 2, r.y, w, t, s)
-}
-fn contrast(p: &Palette) -> ratatui::style::Color {
-    match p.panel_bg {
-        ratatui::style::Color::Reset => p.surface_dim,
-        c => c,
-    }
-}
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn render_text(query: &str) -> Vec<String> {
-        // Several keys on one action make a long key label, as in real configs.
+    fn render_text(config: &str) -> Vec<String> {
         let root = crate::test_support::TestDir::new("hctui-help-render");
         let path = root.join("config.toml");
-        std::fs::write(
-            &path,
-            "[keys]\nreload_config = ['alt+a', 'alt+b', 'alt+c', 'alt+d', 'alt+e', 'alt+f', 'alt+g', 'alt+h']\n",
-        )
-        .unwrap();
+        std::fs::write(&path, config).unwrap();
         let live = crate::config::load(&path).config.live_keybinds();
         let palette = Palette::catppuccin();
         let mut buf = Buffer::empty(Rect::new(0, 0, 100, 40));
-        let state = HelpState {
-            query: TextEditor::from(query),
-            ..HelpState::default()
-        };
-        render_help_overlay(&mut buf, &state, &live, &palette).unwrap();
+        render_help_overlay_with_shadow(&mut buf, &HelpState::default(), &live, &palette, false)
+            .unwrap();
         (0..buf.area.height)
             .map(|y| (0..buf.area.width).map(|x| buf[(x, y)].symbol()).collect())
             .collect()
@@ -336,7 +274,10 @@ mod tests {
 
     #[test]
     fn unfiltered_rows_keep_key_and_description_together() {
-        let rows = render_text("");
+        // Several keys on one action make a long key label, as in real configs.
+        let rows = render_text(
+            "[keys]\nreload_config = ['alt+a', 'alt+b', 'alt+c', 'alt+d', 'alt+e', 'alt+f', 'alt+g', 'alt+h']\n",
+        );
         assert!(
             rows.iter()
                 .any(|row| row.contains("lock / unlock keyboard shortcuts")

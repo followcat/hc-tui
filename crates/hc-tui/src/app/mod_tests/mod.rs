@@ -1,4 +1,7 @@
 //! Read-only application tests and shared fixtures.
+mod agent_fixtures;
+mod agent_fold_swallow;
+mod agent_folds;
 mod cases_1;
 mod cases_2;
 mod command_env;
@@ -6,6 +9,8 @@ mod empty_core_workspace;
 mod endpoint_nav;
 mod endpoint_nav_b;
 mod float_draw;
+mod float_size;
+mod float_size_wire;
 mod float_takeover;
 mod floats;
 mod floats_lifecycle;
@@ -30,6 +35,7 @@ mod observer_policy_tests;
 mod page_keys;
 mod pane_cache;
 mod pane_exit_focus;
+mod peek_keep;
 mod preferences;
 mod reload;
 mod remote_children;

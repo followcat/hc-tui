@@ -8,6 +8,26 @@ All notable changes to hc-tui are documented here. The format follows
 
 ### Added
 
+- With `agent_panel_space_headers`, the grouped agents panel's space headers
+  fold and unfold their agents on a click, shown by a `▾` or `▸` chevron. Folds
+  are remembered per machine across restarts, and moving to an agent of a
+  folded space unfolds it.
+
+## 0.1.22 — 2026-11-27
+
+### Changed
+
+- **Layered modal popups with dimmed backdrops, breathing padding, rounded borders, and drop shadows.** Modals, navigator, settings, update cards, dialogs, peek, floating popups, and context menus now separate visually from the background using theme-derived surface elevation and shadows, fix wide CJK characters straddling popup, overlay, and shadow edges, and add `[ui] popup_backdrop = "dim" | "none"` and `[ui] popup_shadow = true | false` toggles (`docs/keys.md`, `docs/parity.md`).
+
+### Fixed
+
+- Peek's keep refuses a terminal on another machine than the focused one,
+  instead of labelling it with the focused machine's space.
+
+## 0.1.21 — 2026-11-26
+
+### Added
+
 - Custom commands (`[[keys.command]]`: Popup, pane and shell commands, and
   persistent floats) get `HC_FOCUSED_TERMINAL`, `HC_FOCUSED_MACHINE`,
   `HC_FOCUSED_SPACE` and `HC_FOCUSED_TAB`: the terminal that had focus when
@@ -18,6 +38,10 @@ All notable changes to hc-tui are documented here. The format follows
   command runs on this computer instead of the focused pane's machine.
   `HC_FOCUSED_TERMINAL` and `HC_FOCUSED_MACHINE` still name the focused pane.
   Other types ignore it with a diagnostic.
+
+### Fixed
+
+- **Persistent floats keep their configured size across restarts and config reloads.** Adopted floats look up `hc-tui.command` in `[[keys.command]]` on adoption, show, hide, and host resize (falling back to the stored or default size only when no binding matches), so an `80%` float stays `80%` instead of collapsing to half the pane.
 
 ## 0.1.20 — 2026-11-25
 

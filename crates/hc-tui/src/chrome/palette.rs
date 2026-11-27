@@ -92,6 +92,10 @@ impl Palette {
         apply_overrides(&mut self, custom);
         self
     }
+
+    pub(crate) fn elevation(&self) -> super::elevation::Elevation {
+        super::elevation::Elevation::from_palette(self)
+    }
 }
 
 impl ModeThemeColors {

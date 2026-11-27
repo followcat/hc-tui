@@ -8,6 +8,7 @@ use ratatui::{
     style::{Modifier, Style},
 };
 
+use super::agent_folds::AgentFolds;
 use super::endpoints::aggregate_agent_rows;
 use super::render::{ShellHitMap, put_text};
 use super::snapshot::{ClientEndpointId, ClientShellEndpoint};
@@ -63,6 +64,7 @@ pub(crate) fn render_expanded(
     endpoints: &[ClientShellEndpoint],
     active_endpoint_id: &ClientEndpointId,
     config: &super::ClientShellConfig,
+    folds: AgentFolds<'_>,
     agent_scroll: &mut usize,
     reveal_focused_agent: &mut bool,
     hits: &mut ShellHitMap,
@@ -70,7 +72,13 @@ pub(crate) fn render_expanded(
     if !super::agents::render_agent_panel_header(buffer, area, agent_view_label, config, hits) {
         return;
     }
-    let entries = panel_entries(endpoints, active_endpoint_id, agent_view_label, config);
+    let entries = panel_entries(
+        endpoints,
+        active_endpoint_id,
+        agent_view_label,
+        config,
+        folds,
+    );
     let reveal = std::mem::take(reveal_focused_agent);
     let target = reveal
         .then(|| {
@@ -90,8 +98,26 @@ pub(crate) fn render_expanded(
         target,
         PanelEntry::lines,
         |buffer, rect, entry, hits| match entry {
-            PanelEntry::Space { label, gap } => {
-                super::agents::render_space_header(buffer, rect, label, *gap, config);
+            PanelEntry::Space {
+                label,
+                endpoint_id,
+                workspace_id,
+                gap,
+                collapsed,
+            } => {
+                if let Some(line) = super::agents::render_space_header(
+                    buffer,
+                    rect,
+                    (label, *collapsed),
+                    *gap,
+                    config,
+                ) {
+                    hits.extra.endpoint_agent_space_headers.push((
+                        line,
+                        endpoint_id.clone(),
+                        workspace_id.clone(),
+                    ));
+                }
             }
             PanelEntry::Agent(row) => {
                 super::agents::render_agent_row(buffer, rect, &row.agent, config);
@@ -121,15 +147,22 @@ pub(crate) fn agent_entry_index(
     active_endpoint_id: &ClientEndpointId,
     agent_view_label: Option<&str>,
     config: &super::ClientShellConfig,
+    folds: AgentFolds<'_>,
     endpoint_id: &ClientEndpointId,
     pane_id: &str,
 ) -> Option<usize> {
-    panel_entries(endpoints, active_endpoint_id, agent_view_label, config)
-        .iter()
-        .position(|entry| {
-            matches!(entry, PanelEntry::Agent(row)
-                if &row.endpoint_id == endpoint_id && row.agent.pane_id == pane_id)
-        })
+    panel_entries(
+        endpoints,
+        active_endpoint_id,
+        agent_view_label,
+        config,
+        folds,
+    )
+    .iter()
+    .position(|entry| {
+        matches!(entry, PanelEntry::Agent(row)
+            if &row.endpoint_id == endpoint_id && row.agent.pane_id == pane_id)
+    })
 }
 
 /// One entry of the multi-machine agents panel: an agent, or (grouped by
@@ -138,7 +171,11 @@ enum PanelEntry {
     /// A space header; `gap` puts a blank line above every group but the first.
     Space {
         label: String,
+        endpoint_id: ClientEndpointId,
+        workspace_id: String,
         gap: bool,
+        /// The space's agents are folded away.
+        collapsed: bool,
     },
     Agent(EndpointAgentRow),
 }
@@ -156,30 +193,37 @@ impl PanelEntry {
 /// on, sorted by space and not filtered to a view, a header with the
 /// space's name opens each run of one machine's space, as the Herdr app
 /// heads its grouped list: the machine is not named, and a space of the
-/// same name on another machine opens a group of its own.
+/// same name on another machine opens a group of its own. A space in
+/// `folds` keeps only its header.
 fn panel_entries(
     endpoints: &[ClientShellEndpoint],
     active_endpoint_id: &ClientEndpointId,
     agent_view_label: Option<&str>,
     config: &super::ClientShellConfig,
+    folds: AgentFolds<'_>,
 ) -> Vec<PanelEntry> {
-    let grouped = config.agent_panel_space_headers
-        && config.agent_panel_sort == crate::config::AgentPanelSortConfig::Spaces
-        && agent_view_label.is_none();
+    let grouped = super::agent_folds::agent_panel_grouped(config, agent_view_label);
     let mut entries = Vec::new();
     let mut current: Option<(ClientEndpointId, String)> = None;
     for row in agent_rows(endpoints, active_endpoint_id, config) {
+        let mut collapsed = false;
         if grouped && let Some(label) = row.space_label.clone() {
             let group = (row.endpoint_id.clone(), row.workspace_id.clone());
+            collapsed = folds.is_folded(&row.endpoint_id, &row.workspace_id);
             if current.as_ref() != Some(&group) {
                 entries.push(PanelEntry::Space {
                     label,
+                    endpoint_id: row.endpoint_id.clone(),
+                    workspace_id: row.workspace_id.clone(),
                     gap: current.is_some(),
+                    collapsed,
                 });
                 current = Some(group);
             }
         }
-        entries.push(PanelEntry::Agent(row));
+        if !collapsed {
+            entries.push(PanelEntry::Agent(row));
+        }
     }
     entries
 }

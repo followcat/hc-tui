@@ -312,7 +312,13 @@ impl App {
                 .and_then(|e| e.snapshot.as_deref())
                 .and_then(|s| s.panes.iter().find(|p| &p.tab_id == tab_id))
                 .map(|p| p.pane_id.clone()),
-            T::Agent { pane_id, .. } => Some(pane_id.clone()),
+            T::Agent {
+                endpoint_id,
+                pane_id,
+            } => {
+                self.unfold_agent_space_of(endpoint_id, pane_id);
+                Some(pane_id.clone())
+            }
             T::NewTab => {
                 self.mode = Mode::Normal;
                 self.navigate_target = None;

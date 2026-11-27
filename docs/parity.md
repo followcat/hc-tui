@@ -791,6 +791,19 @@ Everything else on the compared surfaces still diffs normally.
   machines added (`hc machine add`), each machine's spaces get their own
   headers without naming the machine, so a space of the same name on two
   machines heads two groups.
+- **Agent-panel space folds.** hc-tui extends the grouped panel: each
+  header shows `▾` or `▸`, a left click on its label line (never the blank
+  gap above it) folds the space's agents away or brings them back, and the
+  fold is remembered per machine across restarts, like the sidebar's
+  workspace group collapses (`collapsed_agent_spaces`, plus one list per
+  remote machine, in the same preferences file; older files load with
+  nothing folded). Agent navigation — previous/next/indexed agent, the
+  mobile switcher and the multi-machine walk — onto an agent of a folded
+  space unfolds it first, only while the panel shows space headers (with
+  them off, or sorted by priority, a saved fold is left as it is). Folding
+  never renumbers agents: the agent order still lists every one. The flat
+  and priority panels have no headers and ignore folds. Whether the Herdr
+  app folds or persists its agent list is not verified.
 - **Persistent float default for a shell popup.** Deliberate: an hc-tui
   `[[keys.command]]` with `type = "popup"` whose command is a bare
   interactive shell is the tab's persistent float unless the entry says
@@ -879,7 +892,8 @@ Everything else on the compared surfaces still diffs normally.
   opens an observe-only attach on the terminal, drawn as the reference's
   80%×80% floating dialog. Keep performs label → layout CAS →
   `terminal.keep` exactly like `terminal.keep` semantics describe; close
-  detaches without writes.
+  detaches without writes. Keep is refused with a notice when the peeked
+  terminal is on another machine than the focused one.
 - **Command-pane unwind.** The reference registers `pane`/`popup`
   command terminals as `overlay_panes` and removes the split, restores
   the previous focus and clears zoom when the command exits. hc-tui
@@ -978,3 +992,32 @@ Everything else on the compared surfaces still diffs normally.
   covered pane's tails sat under the help/menu/navigator rows (two
   cells at 80 columns, one at 64/40). `wide_tail_slot_reemits_when_head_narrows`
   covers the reveal.
+- **Wide graphemes along popup and shadow edges.** Deliberate
+  (`chrome::wide::blank_wide_edges`, ported from backlot at the user's
+  request on 2026-11-26): walks left and right edges (and 1-column drop shadow
+  edges) before any popup or overlay clear/fill, blanking wide heads that
+  straddle into a popup, overlay, or shadow column, blanking revealed tails and
+  orphaned `CellDiffOption::Skip` slots to the right, and keeping adjacent
+  borders intact instead of skipping or halving multi-cell glyphs.
+- **Modal popup depth, elevation, and chrome.** Deliberate: the person
+  asked for this on 2026-11-26, and the design and implementation come from
+  backlot. Every modal overlay (`help`, `navigator`, `settings`,
+  `update_modal`, `dialogs`, `peek`, and ephemeral or persistent `popup`
+  floats) and context menu (`menu`) routes through `chrome::popup_frame` and
+  `chrome::popup_geometry` instead of `Modifier::DIM`-only dim loops, unpadded
+  `panel_bg` boxes, or plain square frames on ephemeral popups, peek, and
+  navigator. Backgrounds outside modals and floating terminal popups attenuate
+  via `Palette::elevation()` perceptual `dim_bg` blending (`55%` dark / `50%`
+  light on RGB themes, `Modifier::DIM` on ANSI/16-color `terminal`), frames
+  lift onto an elevated `overlay` surface (`Terminal` popups preserve
+  terminal-default VT translucency inside `inner`), rounded `╭╮╰╯` borders pair
+  with a 1-cell outer gutter, interior breathing padding (`2/1` on standard
+  modals; `0/0` border pad on `BorderJoined` navigator whose body keeps
+  horizontal and vertical margins), and a `(1, 1)` 1-cell translucent drop
+  shadow. Compact context menus (`PopupChrome::Menu`) use rounded borders,
+  `1/0` padding, and drop shadows without full-screen dim or outer gutter. Under
+  tight terminal dimensions, geometry shrinks outer gutter (`1 -> 0`) first,
+  then interior padding (`2 -> 1 -> 0` H, `1 -> 0` V) before clamping content;
+  hit boxes cover gutter plus border while excluding the drop shadow.
+  `[ui] popup_backdrop` (`"dim"` default, or `"none"`) and
+  `[ui] popup_shadow` (`true` default, or `false`) remain configurable.
