@@ -13,6 +13,13 @@ All notable changes to hc-tui are documented here. The format follows
   are remembered per machine across restarts, and moving to an agent of a
   folded space unfolds it.
 
+### Changed
+
+- Public install and status docs match the v0.1.22 release: official `hc`
+  0.1.22 is the tested build, mise `github:followcat/hc-tui` is listed as an
+  install path, and Homebrew upgrade commands are no longer shown as if core
+  or cask shipped hc-tui.
+
 ### Fixed
 
 - The keybinds overlay keeps each key and its description on one row when one

@@ -347,18 +347,34 @@
               </div>
 
               <div class="stack-sm">
+                <div class="subhead">mise</div>
+                <div class="cmd-box">
+                  <div class="cmd-scroll">
+                    <span class="cmd-prompt" aria-hidden="true">$</span>
+                    <pre><code>mise use -g github:followcat/hc-tui</code></pre>
+                  </div>
+                  <button class="copy-btn" type="button" hidden data-copy="mise use -g github:followcat/hc-tui" aria-label="Copy mise install command">copy</button>
+                </div>
+                <p class="note">
+                  Installs from this repository's GitHub releases. To bump an existing pin:
+                  <code>mise upgrade --bump github:followcat/hc-tui</code>. mise does not install the
+                  <code>hc</code> core; use the script above when <code>hc</code> is missing.
+                </p>
+              </div>
+
+              <div class="stack-sm">
                 <div class="subhead">Pin a specific version</div>
                 <div class="cmd-box cmd-box--multi">
                   <div class="cmd-scroll">
                     <pre><code>curl -fsSL https://followcat.github.io/hc-tui/install.sh \
-  | HC_TUI_VERSION=v0.1.19 sh</code></pre>
+  | HC_TUI_VERSION=v0.1.22 sh</code></pre>
                   </div>
-                  <button class="copy-btn" type="button" hidden data-copy="curl -fsSL https://followcat.github.io/hc-tui/install.sh | HC_TUI_VERSION=v0.1.19 sh" aria-label="Copy version-pinned install command">copy</button>
+                  <button class="copy-btn" type="button" hidden data-copy="curl -fsSL https://followcat.github.io/hc-tui/install.sh | HC_TUI_VERSION=v0.1.22 sh" aria-label="Copy version-pinned install command">copy</button>
                 </div>
                 <dl class="env-list">
                   <div>
                     <dt><code>HC_TUI_VERSION</code></dt>
-                    <dd>Pin a release tag (<code>v0.1.19</code> or <code>0.1.19</code>); latest by default.</dd>
+                    <dd>Pin a release tag (<code>v0.1.22</code> or <code>0.1.22</code>); latest by default.</dd>
                   </div>
                   <div>
                     <dt><code>HC_TUI_INSTALL_DIR</code></dt>
@@ -392,9 +408,11 @@
               <div class="stack-sm">
                 <div class="subhead">Package managers, uninstall, and source builds</div>
                 <p class="note">
-                  Package-managed installs are refused safely with the right command printed:
-                  <code>mise upgrade --bump github:followcat/hc-tui</code>, <code>brew upgrade hc-tui</code>, Nix, or
-                  cargo. Uninstall is <code>rm ~/.local/bin/hc-tui</code>.
+                  Package-managed installs are refused with the channel's own command: mise prints
+                  <code>mise upgrade --bump github:followcat/hc-tui</code>; Nix and cargo follow the configuration
+                  that installed them. Homebrew core and cask have no hc-tui formula; <code>brew upgrade hc-tui</code>
+                  is printed only if the running binary is already a Homebrew keg. Uninstall of the script install is
+                  <code>rm ~/.local/bin/hc-tui</code>.
                 </p>
                 <p class="note">
                   Checksum verification uses <code>sha256sum</code>, <code>shasum</code>, or <code>openssl</code>.
