@@ -123,13 +123,26 @@ fn pane_items_match_reference() {
 
 #[test]
 fn machine_items_are_the_hc_tui_extension() {
-    let local = menu(ContextMenuTarget::Machine { name: None });
-    assert_eq!(labels(&local), ["Add machine"]);
-    let remote = menu(ContextMenuTarget::Machine {
+    let local = menu(ContextMenuTarget::Machine {
+        name: None,
+        connected: true,
+    });
+    assert_eq!(labels(&local), ["New workspace", "Add machine"]);
+    let connected = menu(ContextMenuTarget::Machine {
         name: Some("host-a".into()),
+        connected: true,
     });
     assert_eq!(
-        labels(&remote),
+        labels(&connected),
+        ["New workspace", "Rename machine", "Remove machine"]
+    );
+    // A disconnected machine keeps Connect and cannot create a workspace.
+    let offline = menu(ContextMenuTarget::Machine {
+        name: Some("host-a".into()),
+        connected: false,
+    });
+    assert_eq!(
+        labels(&offline),
         ["Connect", "Rename machine", "Remove machine"]
     );
 }

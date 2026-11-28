@@ -115,7 +115,7 @@ async fn a_machine_connect_activation_reaches_the_wire_without_a_dialog() {
     let Some(menu) = &app.menu else {
         panic!("the machine row opens a context menu")
     };
-    let ContextMenuTarget::Machine { name } = &menu.target else {
+    let ContextMenuTarget::Machine { name, .. } = &menu.target else {
         panic!("the menu targets the machine")
     };
     assert_eq!(name.as_deref(), Some("host-b"));

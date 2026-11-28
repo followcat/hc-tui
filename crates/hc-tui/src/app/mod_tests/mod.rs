@@ -29,6 +29,7 @@ mod m4s2_b;
 mod m4s3;
 mod m4s4;
 mod m4s5;
+mod machine_new_workspace;
 mod mouse_selection;
 mod narrow;
 mod observer_policy_tests;

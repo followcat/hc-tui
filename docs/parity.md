@@ -416,7 +416,7 @@ or title are masked. These are documented core-policy differences, not passes.
 | Layout/tab navigation and lock | M3a implements indexed workspace/tab/agent selection, previous/next, directional pane focus/swap, cycle/last pane, zoom/resize and Ctrl+G lock with default/configured bindings. With multiple sidebar endpoints, previous/next workspace and previous/next/focus agent cross every Online machine in sidebar order (the reference's `handle_endpoint_navigation`); indexed workspace selection stays on the active endpoint and tab previous/next stays in the focused workspace. |
 | Reload config binding/menu | M3a.1 rereads local herdr config, rebuilds bindings/theme/chrome and reallocates panes. Invalid sections keep their old values while valid siblings apply; parse/read failures retain the current config. Manual sidebar width and agent sorting survive. |
 | Settings binding/menu | M4 implements the reference overlay: the five sections (theme, indicators, sound, toast, integrations), live theme preview, `write_edit` saves and the same config-reload path as the reload binding. The Integrations section has no `integration.list`/`integration.install` core methods in hc, so it renders the reference's empty state `no integration targets available` and applying it is inert — the reference renders its built-in target list instead, so that one checkpoint differs by the missing core methods (Known differences). |
-| Mutation actions | M3a includes new tabs, both split axes, close tab/pane and rename tab/pane, with matching dialogs. M4s1 adds the right-click context menu (workspace/tab/pane targets, reference items/geometry/highlight), workspace new/rename/close including the mobile `+ new workspace` row, and machine dialogs (add/connect/rename/remove). Custom commands, notifications, scrollback editing/clear and remaining actions stay in later M4 slices or M5. |
+| Mutation actions | M3a includes new tabs, both split axes, close tab/pane and rename tab/pane, with matching dialogs. M4s1 adds the right-click context menu (workspace/tab/pane targets, reference items/geometry/highlight), workspace new/rename/close including the mobile `+ new workspace` row, and machine dialogs (add/connect/rename/remove). The machine menu also carries `New workspace`, so a workspace can be created on any connected machine, including an empty one. Custom commands, notifications, scrollback editing/clear and remaining actions stay in later M4 slices or M5. |
 | Copy mode/selection/clipboard help entries | M5 implements the binding (`keys.copy_mode`, default `prefix+[`), the copy cursor/mode bar/search prompt visuals, motions, search and visual/linewise selection, plus mouse and popup selection through OSC 52. The help overlay lists the same entries as the reference. |
 | Create/open/remove worktree help entries | Listed for source help fidelity; worktree mutation is outside v1. Read-only Git/worktree presentation remains required. |
 
@@ -620,12 +620,21 @@ Everything else on the compared surfaces still diffs normally.
 - **Machine context menu and dialogs.** The reference TUI has no machine
   management surface: a right-click on a machine row falls through its
   dispatch and shows nothing. hc-tui opens a machine menu — the Local row
-  offers `Add machine`; a remote row offers `Connect`, `Rename machine` and
-  `Remove machine`. Add/Rename use the shared rename-dialog surface, Remove
-  the shared confirm surface, and Connect needs no dialog. These rows and
-  dialogs are an intentional extension, exercised on the fake core only —
-  no parity checkpoint compares them and real machines are never added or
-  removed in tests.
+  offers `New workspace` and `Add machine`; a connected remote row offers
+  `New workspace`, `Rename machine` and `Remove machine`; a disconnected one
+  offers `Connect` in place of `New workspace`, since Connect does nothing on
+  a machine that is already connected. `New workspace` creates on that
+  machine (home or default cwd, like the `new workspace` action) so a
+  workspace can be made on any connected machine, including an empty one.
+  Add/Rename use the shared rename-dialog surface, Remove the shared confirm
+  surface, and Connect needs no dialog. These rows and dialogs are an
+  intentional extension, exercised on the fake core only — no parity
+  checkpoint compares them and real machines are never added or removed in
+  tests. The `new workspace` action itself follows a sidebar highlight (the
+  Navigate/mobile picker's selected row) when one exists, else the active
+  machine; the highlight is the only keyboard-reachable machine selection,
+  so no context-menu key was added (the reference opens context menus by
+  right-click only).
 - **Agent context menu.** The reference TUI has no agent-row menu: a
   right-click on an agent row or chip falls through its dispatch. hc-tui
   opens an extension menu in the reference's style — `Send a line...`

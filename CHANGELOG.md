@@ -15,6 +15,8 @@ All notable changes to hc-tui are documented here. The format follows
 
 ### Fixed
 
+- A machine's menu offers New workspace, so a workspace can be made on any
+  connected machine, including an empty one (#82).
 - The keybinds overlay keeps each key and its description on one row when one
   action has many keys.
 

@@ -36,6 +36,7 @@ pub(crate) enum ContextMenuAction {
     MachineConnect,
     MachineRename,
     MachineRemove,
+    MachineNewWorkspace,
     Peek,
     SendLine,
     Interrupt,
@@ -68,7 +69,12 @@ pub(crate) enum ContextMenuTarget {
         right_click_passthrough: bool,
     },
     /// `None` is the Local row; `Some(name)` a `machine.list` entry.
-    Machine { name: Option<String> },
+    /// `connected` decides whether the row offers New workspace and hides
+    /// the Connect item, which does nothing on a connected machine.
+    Machine {
+        name: Option<String>,
+        connected: bool,
+    },
     /// hc-tui extension: the agent row menu (parity.md).
     Agent { pane_id: String },
 }
@@ -166,10 +172,26 @@ impl ContextMenu {
                 items
             }
             // hc-tui extension: herdr has no machine menu surface.
-            ContextMenuTarget::Machine { name: None } => {
-                vec![item("Add machine", Action::MachineAdd)]
-            }
-            ContextMenuTarget::Machine { name: Some(_) } => vec![
+            //
+            // New workspace is offered on any connected machine (Local is
+            // always connected) so a workspace can be made there, even on
+            // an empty one. Connect is dropped where it would do nothing.
+            ContextMenuTarget::Machine { name: None, .. } => vec![
+                item("New workspace", Action::MachineNewWorkspace),
+                item("Add machine", Action::MachineAdd),
+            ],
+            ContextMenuTarget::Machine {
+                name: Some(_),
+                connected: true,
+            } => vec![
+                item("New workspace", Action::MachineNewWorkspace),
+                item("Rename machine", Action::MachineRename),
+                item("Remove machine", Action::MachineRemove),
+            ],
+            ContextMenuTarget::Machine {
+                name: Some(_),
+                connected: false,
+            } => vec![
                 item("Connect", Action::MachineConnect),
                 item("Rename machine", Action::MachineRename),
                 item("Remove machine", Action::MachineRemove),

@@ -103,6 +103,26 @@ impl App {
                 return;
             }
         };
+        self.finish_new_workspace(creation, suggested);
+    }
+
+    /// The machine menu's New workspace: create on `machine` (`None` = this
+    /// computer) rather than the active one, through the same prompt/direct
+    /// path as `new_workspace`.
+    pub(super) fn new_workspace_on_machine(&mut self, machine: Option<&str>) {
+        let (creation, suggested) = match self.workspace_creation_on_machine(machine) {
+            Ok(pair) => pair,
+            Err(e) => {
+                self.show_notice("New workspace unavailable", &e);
+                return;
+            }
+        };
+        self.finish_new_workspace(creation, suggested);
+    }
+
+    /// Shared tail of `new_workspace` and `new_workspace_on_machine`: prompt
+    /// when `prompt_new_workspace_name` is set, else create directly.
+    fn finish_new_workspace(&mut self, creation: Creation, suggested: String) {
         if self.shell.prompt_new_workspace_name {
             self.open_dialog(
                 Target::NewWorkspace(Box::new(creation), suggested.clone()),
