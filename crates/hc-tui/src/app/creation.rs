@@ -232,13 +232,51 @@ impl App {
     /// tab identities, and an adoption entry recording its label — the
     /// reference's `Method::WorkspaceCreate` plus its workspace-label write.
     pub(super) fn workspace_creation(&self) -> Result<(Creation, String), String> {
+        let machine = self.workspace_action_machine();
+        self.workspace_creation_on_machine(machine.as_deref())
+    }
+
+    /// The `new workspace` action's machine. A sidebar highlight — the
+    /// Navigate/mobile picker's selected row, drawn as the sidebar's
+    /// selected workspace — names the machine to create on. Otherwise the
+    /// active machine: the focused pane's, or the active endpoint when
+    /// nothing is focused.
+    fn workspace_action_machine(&self) -> Option<String> {
+        if let Some(target) = &self.navigate_target {
+            return match &target.endpoint_id {
+                crate::chrome::snapshot::ClientEndpointId::Local => None,
+                crate::chrome::snapshot::ClientEndpointId::Remote(name) => Some(name.clone()),
+            };
+        }
+        self.focused
+            .as_ref()
+            .and_then(|id| self.view.inventory.get(id))
+            .and_then(|terminal| terminal.address.split_once('/').map(|(m, _)| m.to_owned()))
+            .or_else(|| match &self.projection.active_endpoint_id {
+                crate::chrome::snapshot::ClientEndpointId::Local => None,
+                crate::chrome::snapshot::ClientEndpointId::Remote(name) => Some(name.clone()),
+            })
+    }
+
+    /// A workspace on `machine` (`None` = this computer), created the way
+    /// `workspace_creation` creates one on the active machine. When the
+    /// focused terminal already lives on that machine, its live folder
+    /// names and places the new workspace; otherwise — a machine the
+    /// client has no cwd fact for, including an empty one — the terminal
+    /// starts in that machine's home (`on` routes the run) and the label
+    /// follows the spawned folder.
+    pub(super) fn workspace_creation_on_machine(
+        &self,
+        machine: Option<&str>,
+    ) -> Result<(Creation, String), String> {
         let terminal = self
             .focused
             .as_ref()
             .and_then(|id| self.view.inventory.get(id));
-        let (machine, cwd, suggested, adoption_name) = match terminal {
+        let focused_machine = terminal.and_then(|t| t.address.split_once('/').map(|(m, _)| m));
+        let (cwd, suggested, adoption_name) = match terminal.filter(|_| focused_machine == machine)
+        {
             Some(terminal) => {
-                let machine = terminal.address.split_once('/').map(|(m, _)| m);
                 let snapshot = &self.projection.snapshot;
                 let workspace = snapshot
                     .focused_workspace_id
@@ -261,15 +299,9 @@ impl App {
                     _ => terminal.cwd.clone(),
                 };
                 let suggested = suggested_name(&cwd);
-                (machine, Some(cwd), suggested.clone(), suggested)
+                (Some(cwd), suggested.clone(), suggested)
             }
-            None => {
-                let machine = match &self.projection.active_endpoint_id {
-                    crate::chrome::snapshot::ClientEndpointId::Local => None,
-                    crate::chrome::snapshot::ClientEndpointId::Remote(name) => Some(name.as_str()),
-                };
-                (machine, None, "workspace".to_owned(), String::new())
-            }
+            None => (None, "workspace".to_owned(), String::new()),
         };
         let raw_space = opaque_id()?;
         let raw_tab = opaque_id()?;

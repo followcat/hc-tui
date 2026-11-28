@@ -200,3 +200,22 @@ Sidebar widths, collapse behavior, mobile header, tab bar, pane gutters and
 borders use the reference configuration and geometry. Narrow terminals do
 not introduce a separate hc-tui status-line format. Divider dragging updates
 both drawing and the size allocated to the attached program.
+
+## Machine menu
+
+A right-click on a machine row opens the hc-tui machine menu (the reference
+has none; see [parity](parity.md#known-differences)). A connected machine —
+`Local` always counts as one — offers **New workspace**, which creates a
+workspace on that machine the way the `new workspace` action does on the
+active one. On a machine the client has no local folder for, including an
+empty one, the terminal starts in that machine's home and the workspace takes
+the spawned folder's name. A connected machine does not offer **Connect**,
+which would do nothing; a disconnected machine keeps it and cannot create a
+workspace. `Rename machine` and `Remove machine` stay on every remote row,
+and `Local` keeps `Add machine`.
+
+The `new workspace` action (binding and the `+ new` footer row, and the
+mobile switcher's new-workspace row) creates on the active machine. When the
+sidebar has a highlighted row — the Navigate or mobile picker's selected
+workspace — the action creates on that row's machine instead, so the picker
+can aim a new workspace at any connected machine without opening its menu.

@@ -38,8 +38,11 @@ impl App {
                 crate::chrome::snapshot::ClientEndpointId::Local => None,
                 crate::chrome::snapshot::ClientEndpointId::Remote(name) => Some(name.clone()),
             };
+            // A remote machine is connected only while its endpoint is
+            // Online; the Local row's own items never depend on this.
+            let connected = self.endpoint_is_online(&hit);
             self.menu = Some(ContextMenu {
-                target: ContextMenuTarget::Machine { name },
+                target: ContextMenuTarget::Machine { name, connected },
                 x: point.0,
                 y: point.1,
                 highlighted: 0,
@@ -329,7 +332,10 @@ impl App {
                     _ => {}
                 }
             }
-            ContextMenuTarget::Machine { name } => match (name, action) {
+            ContextMenuTarget::Machine { name, .. } => match (name, action) {
+                (_, ContextMenuAction::MachineNewWorkspace) => {
+                    self.new_workspace_on_machine(name.as_deref());
+                }
                 (None, ContextMenuAction::MachineAdd) => self.machine_add(),
                 (Some(machine), ContextMenuAction::MachineConnect) => {
                     self.submit_action(Action::Machine(crate::operations::MachineOp::Connect {
