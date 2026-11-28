@@ -40,7 +40,15 @@ curl -fsSL https://followcat.github.io/hc-tui/install.sh | sh
 
 This installs hc-tui and, when it's missing, the `hc` core it talks to. hc-tui goes into `~/.local/bin`, without
 sudo, after a check against the release's `sha256sums.txt`. There are builds for Linux (x86_64 and aarch64) and
-macOS (arm64 and Intel). To pin a version, skip the core install, upgrade or uninstall, see
+macOS (arm64 and Intel).
+
+With [mise](https://mise.jdx.dev/):
+
+```sh
+mise use -g github:followcat/hc-tui
+```
+
+To pin a version, skip the core install, upgrade or uninstall, see
 [docs/install.md](docs/install.md).
 
 ## Usage
@@ -92,9 +100,9 @@ It runs on official `hc`. CI builds a pinned herdr-core from source and drives t
 use so far has been on [followcat/herdr-core](https://github.com/followcat/herdr-core), a fork of `hc`, so reports from
 official `hc` are especially welcome.
 
-Official `hc` 0.1.21 is the tested build; older 0.1.x cores keep working, with each missing capability switched off.
+Official `hc` 0.1.22 is the tested build; older 0.1.x cores keep working, with each missing capability switched off.
 The fork publishes its own facts (screen-read status, Git and hostname details, completion ordinals); its client
-contract is [docs/fork-features.md](https://github.com/followcat/herdr-core/blob/v0.1.21-followcat.1/docs/fork-features.md).
+contract is [docs/fork-features.md](https://github.com/followcat/herdr-core/blob/v0.1.22-followcat.1/docs/fork-features.md).
 
 On official `hc`, agents only show a status if they report it themselves (OSC 7501), and the sidebar has no Git or
 hostname details. See [Core compatibility](docs/compatibility.md).

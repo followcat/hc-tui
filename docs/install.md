@@ -37,6 +37,15 @@ whichever is available.
 Once `hc` is installed you don't start it yourself: `hc-tui` starts a local core when it needs one. See
 [troubleshooting](troubleshooting.md) for when it does and doesn't.
 
+## mise
+
+```sh
+mise use -g github:followcat/hc-tui
+```
+
+mise installs hc-tui from this repository's GitHub releases. It does not install the `hc` core; use the script above
+when `hc` is missing. To move an existing pin, see [Upgrade](#upgrade).
+
 ## Manual install
 
 From the [Releases page](https://github.com/followcat/hc-tui/releases), download
@@ -84,9 +93,9 @@ do nothing.
 
 ### Homebrew
 
-```sh
-brew upgrade hc-tui
-```
+Homebrew core and cask have no hc-tui formula, and this repository has no tap, so `brew install hc-tui` and
+`brew upgrade hc-tui` are not install paths. If the running binary is already a Homebrew keg, `--upgrade` refuses and
+prints `brew upgrade hc-tui`.
 
 ### Nix
 
