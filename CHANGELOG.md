@@ -15,6 +15,8 @@ All notable changes to hc-tui are documented here. The format follows
 
 ### Fixed
 
+- Peek's keep refuses a terminal on another machine than the focused one,
+  instead of labelling it with the focused machine's space.
 - A machine's menu offers New workspace, so a workspace can be made on any
   connected machine, including an empty one (#82).
 - The keybinds overlay keeps each key and its description on one row when one
@@ -25,11 +27,6 @@ All notable changes to hc-tui are documented here. The format follows
 ### Changed
 
 - **Layered modal popups with dimmed backdrops, breathing padding, rounded borders, and drop shadows.** Modals, navigator, settings, update cards, dialogs, peek, floating popups, and context menus now separate visually from the background using theme-derived surface elevation and shadows, fix wide CJK characters straddling popup, overlay, and shadow edges, and add `[ui] popup_backdrop = "dim" | "none"` and `[ui] popup_shadow = true | false` toggles (`docs/keys.md`, `docs/parity.md`).
-
-### Fixed
-
-- Peek's keep refuses a terminal on another machine than the focused one,
-  instead of labelling it with the focused machine's space.
 
 ## 0.1.21 — 2026-11-26
 
