@@ -15,6 +15,7 @@ All notable changes to hc-tui are documented here. The format follows
 
 ### Changed
 
+- The README and the project page show 0.1.22, with new screenshots and animations.
 - Public install and status docs match the v0.1.22 release: official `hc`
   0.1.22 is the tested build, mise `github:followcat/hc-tui` is listed as an
   install path, and Homebrew upgrade commands are no longer shown as if core

@@ -14,8 +14,8 @@
   <meta property="og:title" content="hc-tui — Terminal UI for herdr-core (hc)">
   <meta property="og:description" content="An unofficial terminal UI for herdr-core (hc). Manage spaces, agents, splits, floating shells, and persistent SSH sessions from your terminal.">
   <meta property="og:image" content="https://followcat.github.io/hc-tui/images/hc-tui.png">
-  <meta property="og:image:width" content="1440">
-  <meta property="og:image:height" content="840">
+  <meta property="og:image:width" content="1600">
+  <meta property="og:image:height" content="900">
   <meta property="og:image:alt" content="hc-tui showing a sidebar of spaces and agents alongside three terminal panes">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="hc-tui — Terminal UI for herdr-core (hc)">
@@ -84,7 +84,7 @@
         </div>
 
         <figure class="shot shot--hero">
-          <img src="images/hc-tui.png" width="1440" height="840" fetchpriority="high" alt="hc-tui interface showing a sidebar with spaces and agents on the left and three split terminal panes on the right">
+          <img src="images/hc-tui.png" width="1600" height="900" fetchpriority="high" alt="hc-tui interface showing a sidebar with spaces and agents on the left and three split terminal panes on the right">
           <figcaption>Sidebar of spaces and agents beside a multi-pane workspace (storefront tab active).</figcaption>
         </figure>
       </div>
@@ -176,7 +176,7 @@
               </p>
             </div>
             <figure class="shot">
-              <img src="images/alt-arrows.gif" width="1120" height="697" loading="lazy" alt="Animation of switching tabs with Alt+Left and Alt+Right and jumping between agents across workspaces with Alt+Up and Alt+Down">
+              <img src="images/alt-arrows.gif" width="1120" height="630" loading="lazy" alt="Animation of switching tabs with Alt+Left and Alt+Right and jumping between agents across workspaces with Alt+Up and Alt+Down">
               <figcaption>Prefix-free switching across tabs and agents with optional Alt+arrow bindings.</figcaption>
             </figure>
           </article>
@@ -197,7 +197,7 @@
               </p>
             </div>
             <figure class="shot">
-              <img src="images/selection.png" width="1440" height="840" loading="lazy" alt="Highlighted text selected with the mouse inside an hc-tui terminal pane">
+              <img src="images/selection.png" width="1600" height="900" loading="lazy" alt="Highlighted text selected with the mouse inside an hc-tui terminal pane">
               <figcaption>Mouse selection copies to your local clipboard on release through OSC 52.</figcaption>
             </figure>
           </article>
@@ -217,7 +217,7 @@
               </p>
             </div>
             <figure class="shot">
-              <img src="images/settings.png" width="1440" height="840" loading="lazy" alt="hc-tui Settings overlay listing built-in dark and light themes including Catppuccin, Tokyo Night, Dracula, Nord, Gruvbox, One Dark, and Solarized">
+              <img src="images/settings.png" width="1600" height="900" loading="lazy" alt="hc-tui Settings overlay listing built-in dark and light themes including Catppuccin, Tokyo Night, Dracula, Nord, Gruvbox, One Dark, and Solarized">
               <figcaption>Settings overlay (<kbd>Ctrl+B</kbd> <kbd>s</kbd>) carrying over Herdr themes and preferences.</figcaption>
             </figure>
           </article>
@@ -265,15 +265,29 @@
                 closes.
               </p>
               <p>
-                Persistent floats draw a dimmed backdrop, drop shadow, and accent frame; set
-                <code>persistent = false</code> when you want a one-shot popup instead. See
+                Persistent floats draw a dimmed backdrop, one-cell gutter, drop shadow, and accent frame; set
+                <code>persistent = false</code> when you want a one-shot popup instead. The same 0.1.22 popup
+                chrome carries settings, key help, menus, and agent Peek. See
                 <a href="https://github.com/followcat/hc-tui/blob/main/docs/keys.md#floating-terminal">docs/keys.md</a>
                 for the config snippet.
               </p>
             </div>
             <figure class="shot">
-              <img src="images/alt-f.gif" width="1120" height="697" loading="lazy" alt="Animation of toggling a persistent floating shell overlay over a workspace tab with Alt+F">
-              <figcaption>A persistent per-tab shell popup opened and hidden with Alt+F.</figcaption>
+              <img src="images/popup.png" width="1600" height="900" loading="lazy" alt="A persistent floating shell popup in hc-tui with a dimmed backdrop, gutter, rounded border, and shadow">
+              <img src="images/alt-f.gif" width="1120" height="630" loading="lazy" alt="Animation of opening and hiding a persistent floating shell with Alt+F">
+              <figcaption>The 0.1.22 popup chrome, and the same floating shell opened with Alt+F.</figcaption>
+            </figure>
+          </article>
+
+          <!-- Peek animation -->
+          <article class="feature-row">
+            <div class="feature-copy">
+              <h3 class="feature-title"><span class="sq sq--accent" aria-hidden="true"></span><span>Agent Peek</span></h3>
+              <p>Open Peek from the agents panel to look at a running agent in an observe-only floating view, then close it without changing the agent.</p>
+            </div>
+            <figure class="shot">
+              <img src="images/peek.gif" width="1120" height="630" loading="lazy" alt="Animation of opening an agent Peek from the agents panel, typing, and closing it">
+              <figcaption>Agent Peek opened from the agents panel.</figcaption>
             </figure>
           </article>
 
@@ -289,8 +303,9 @@
               <p>
                 Run <code>hc-tui --upgrade</code> or press <kbd>Ctrl+B</kbd> <kbd>u</kbd> (or click the
                 <code>↑v…</code> badge) to read release notes, update locally, and restart in place. Binaries managed
-                by mise, Homebrew, Nix, cargo, or dev builds are refused safely with the package manager's own command
-                printed instead.
+                by mise, Nix, cargo, or dev builds are refused safely with the package manager's own command
+                printed instead. Homebrew has no hc-tui formula; the Homebrew command is printed only for a
+                binary already installed as a keg.
               </p>
             </article>
 
@@ -558,7 +573,7 @@ hc-tui --remote host-a --session work   # attach over SSH</code></pre>
             </div>
 
             <figure class="shot">
-              <img src="images/keybinds.png" width="1440" height="840" loading="lazy" alt="Searchable key bindings overlay in hc-tui opened with Ctrl+B ?">
+              <img src="images/keybinds.png" width="1600" height="900" loading="lazy" alt="Searchable key bindings overlay in hc-tui opened with Ctrl+B ?">
               <figcaption>Press <kbd>Ctrl+B</kbd> <kbd>?</kbd> anytime to search the live binding table.</figcaption>
             </figure>
           </div>

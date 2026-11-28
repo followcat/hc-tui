@@ -35,7 +35,7 @@ jobs:
           set -eu
           mkdir -p _site/images
           cp -R .github/pages/. _site/
-          for img in hc-tui.png alt-arrows.gif selection.png settings.png alt-f.gif keybinds.png; do
+          for img in hc-tui.png alt-arrows.gif selection.png settings.png alt-f.gif keybinds.png popup.png peek.gif; do
             cp "docs/images/$img" "_site/images/$img"
           done
           if [ -n "$RELEASE_TAG" ]; then
