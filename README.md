@@ -7,8 +7,8 @@ terminal or on a machine with no desktop, and want the Herdr TUI on top of `hc`.
 
 ## Features
 
-- A sidebar of spaces and agents. Each agent shows whether it's working, blocked, done or idle. Machines added with
-  `hc machine add` appear there too.
+- A sidebar of spaces and agents. Each agent shows whether it's working, blocked, done, waiting or idle. Machines added
+  with `hc machine add` appear there too.
 - Tabs, split panes and zoom. `Ctrl+G` locks the keyboard, so every key goes to the program.
 - Select text with the mouse and it's copied when you let go. This uses OSC 52, so your terminal has to allow it.
 - Your Herdr key bindings, theme and other settings carry over from your existing Herdr config.
@@ -16,12 +16,15 @@ terminal or on a machine with no desktop, and want the Herdr TUI on top of `hc`.
 - Works locally or over plain SSH. Your terminals stay on the server when you detach.
 - Over SSH, `Ctrl+V` pastes an image from your local clipboard into the agent's machine. `Ctrl+Shift+V` stays the
   text paste.
+- Layered popups with a dimmed backdrop and shadow: settings, key help, menus, Peek and floating terminals.
 - A persistent floating terminal per tab (bind `Alt+F` to a shell popup — see [docs/keys.md](docs/keys.md)). It keeps
-  running while you work in the tab, parked when you switch away, killed when its tab closes.
+  running while you work in the tab, parked when you switch away, killed when its tab closes. Peek at an agent from
+  the agents panel without changing its terminal.
 - A release check on startup tells you when a newer hc-tui is out — one cached request a day, disabled with
   `update.version_check = false` or `HC_TUI_NO_UPDATE_CHECK=1`. `hc-tui --upgrade` installs it, and `prefix+u` opens
-  the release notes and an in-client upgrade with a restart. A binary managed by mise, Homebrew, Nix or cargo — or a
-  dev build — is refused instead, with the package manager's own command.
+  the release notes and an in-client upgrade with a restart. A binary managed by mise, Nix or cargo — or a dev build —
+  is refused instead, with the package manager's own command. Homebrew has no hc-tui formula; the Homebrew command
+  appears only for a binary already in a keg.
 
 Agents can also show `◌ waiting`: their own turn is quiet, but work they started is still running — a background
 `-c` shell under the agent's process tree, or, for Claude Code, a `shell` status in its own session file. The check
@@ -32,6 +35,10 @@ status, marks anything seen, or raises a notification.
 |---|---|
 | ![Text selected with the mouse in a pane](docs/images/selection.png) | ![The settings overlay with its list of themes](docs/images/settings.png) |
 
+| Key bindings | A floating shell |
+|---|---|
+| ![The searchable key bindings overlay](docs/images/keybinds.png) | ![A floating shell popup over the workspace](docs/images/popup.png) |
+
 ## Install
 
 ```sh
@@ -40,7 +47,15 @@ curl -fsSL https://followcat.github.io/hc-tui/install.sh | sh
 
 This installs hc-tui and, when it's missing, the `hc` core it talks to. hc-tui goes into `~/.local/bin`, without
 sudo, after a check against the release's `sha256sums.txt`. There are builds for Linux (x86_64 and aarch64) and
-macOS (arm64 and Intel). To pin a version, skip the core install, upgrade or uninstall, see
+macOS (arm64 and Intel).
+
+With [mise](https://mise.jdx.dev/):
+
+```sh
+mise use -g github:followcat/hc-tui
+```
+
+To pin a version, skip the core install, upgrade or uninstall, see
 [docs/install.md](docs/install.md).
 
 ## Usage
@@ -84,6 +99,8 @@ by default: [docs/keys.md](docs/keys.md#alt-shortcuts) has the config to copy.
 |---|---|
 | ![Switching tabs and agents with Alt and the arrow keys](docs/images/alt-arrows.gif) | ![A floating shell opened with Alt+F](docs/images/alt-f.gif) |
 
+![Opening an agent Peek from the agents panel, typing, and closing it](docs/images/peek.gif)
+
 ## Status
 
 hc-tui is early.
@@ -92,9 +109,9 @@ It runs on official `hc`. CI builds a pinned herdr-core from source and drives t
 use so far has been on [followcat/herdr-core](https://github.com/followcat/herdr-core), a fork of `hc`, so reports from
 official `hc` are especially welcome.
 
-Official `hc` 0.1.21 is the tested build; older 0.1.x cores keep working, with each missing capability switched off.
+Official `hc` 0.1.22 is the tested build; older 0.1.x cores keep working, with each missing capability switched off.
 The fork publishes its own facts (screen-read status, Git and hostname details, completion ordinals); its client
-contract is [docs/fork-features.md](https://github.com/followcat/herdr-core/blob/v0.1.21-followcat.1/docs/fork-features.md).
+contract is [docs/fork-features.md](https://github.com/followcat/herdr-core/blob/v0.1.22-followcat.1/docs/fork-features.md).
 
 On official `hc`, agents only show a status if they report it themselves (OSC 7501), and the sidebar has no Git or
 hostname details. See [Core compatibility](docs/compatibility.md).

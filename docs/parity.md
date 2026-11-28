@@ -846,8 +846,9 @@ Everything else on the compared surfaces still diffs normally.
   `HC_TUI_SKIP_CORE=1` into the running binary's directory, a `--version` check before `done`, and an in-place `exec`
   restart. The modal frame, typography, markdown styling, the shell badges and the `NAVIGATE` status are ported from the
   reference, and so is the managed-install refusal: a mise, Homebrew, Nix, cargo or dev-build binary gets no `↵ update`,
-  and `hc-tui --upgrade` refuses with the channel's own command (`mise upgrade --bump github:followcat/hc-tui`, `brew
-  upgrade hc-tui`) unless `HC_TUI_INSTALL_DIR` is set explicitly. Not ported yet: the reference's global command menu.
+  and `hc-tui --upgrade` refuses with the channel's own command (`mise upgrade --bump github:followcat/hc-tui`;
+  `brew upgrade hc-tui` only when the binary is already a Homebrew keg — core and cask have no formula) unless
+  `HC_TUI_INSTALL_DIR` is set explicitly. Not ported yet: the reference's global command menu.
   The `● menu` launcher shows its dot while an update
   waits, but its click still does nothing, as before this change; the card is reached through `prefix+u` and the badge.
   When an update and a pending restart are both known, the restart hint wins: the badge shows `↻v`, not `↑v`, because

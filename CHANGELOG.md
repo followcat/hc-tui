@@ -13,6 +13,14 @@ All notable changes to hc-tui are documented here. The format follows
   are remembered per machine across restarts, and moving to an agent of a
   folded space unfolds it.
 
+### Changed
+
+- The README and the project page show 0.1.22, with new screenshots and animations.
+- Public install and status docs match the v0.1.22 release: official `hc`
+  0.1.22 is the tested build, mise `github:followcat/hc-tui` is listed as an
+  install path, and Homebrew upgrade commands are no longer shown as if core
+  or cask shipped hc-tui.
+
 ### Fixed
 
 - Peek's keep refuses a terminal on another machine than the focused one,
